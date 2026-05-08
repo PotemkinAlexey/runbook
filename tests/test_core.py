@@ -92,6 +92,8 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(data["status"], "passed")
         self.assertEqual(data["summary"]["passed"], 1)
         self.assertEqual(data["context"]["items"], [1])
+        self.assertIsInstance(data["summary"]["duration_seconds"], float)
+        self.assertIsInstance(data["steps"][0]["duration_seconds"], float)
 
     def test_if_else_runs_expected_action(self):
         context = {"ready": True}

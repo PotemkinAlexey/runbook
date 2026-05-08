@@ -27,6 +27,7 @@ Important fields:
 - `context`: final context dictionary
 - `steps`: list of executed `StepResult` objects
 - `error`: `RunbookFailedError` when failed
+- `duration_seconds`: total runtime
 
 ## Serialization
 
@@ -63,6 +64,7 @@ Fields:
 - `status`: `passed`, `failed`, or `skipped`
 - `message`: optional skip/failure message
 - `warnings`: warnings collected from `warn_when`
+- `duration_seconds`: step runtime
 
 ## Formatting Failures
 

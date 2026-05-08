@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from time import monotonic
 from typing import Any, Callable, List, Optional
 
 from jinja2 import Template
@@ -101,6 +102,7 @@ class Step:
         index: Optional[int] = None,
         total: Optional[int] = None,
     ) -> StepResult:
+        started_at = monotonic()
         active_logger = logger or self._logger
         active_logger.step_started(self.name, index=index, total=total)
 
@@ -110,7 +112,13 @@ class Step:
         skip_result = self._run_skip_conditions(context, active_logger)
         if skip_result:
             active_logger.step_skipped(self.name, skip_result.message)
-            return skip_result
+            return StepResult(
+                name=skip_result.name,
+                status=skip_result.status,
+                message=skip_result.message,
+                warnings=skip_result.warnings,
+                duration_seconds=_elapsed(started_at),
+            )
 
         self._run_expression_expectation(context, active_logger)
         self._run_failure_conditions(context, active_logger)
@@ -121,7 +129,7 @@ class Step:
             action(context)
 
         active_logger.step_passed(self.name)
-        return StepResult(name=self.name, warnings=warnings)
+        return StepResult(name=self.name, warnings=warnings, duration_seconds=_elapsed(started_at))
 
     def _run_skip_conditions(self, context: Context, logger: RunbookLogger) -> Optional[StepResult]:
         for check, message in self.skip_conditions:
@@ -259,6 +267,7 @@ class Runbook:
         return self
 
     def execute(self, context: Context) -> RunbookResult:
+        started_at = monotonic()
         executed_steps: List[StepResult] = []
         logger = get_runbook_logger()
         logger.runbook_started(self.name, len(self.steps))
@@ -267,12 +276,14 @@ class Runbook:
             for index, step in enumerate(self.steps, start=1):
                 executed_steps.append(step.run(context, logger=logger, index=index, total=len(self.steps)))
             logger.runbook_passed(self.name, len(executed_steps))
-            return RunbookResult.success(self.name, context, executed_steps)
+            return RunbookResult.success(self.name, context, executed_steps, duration_seconds=_elapsed(started_at))
         except RunbookFailedError as exc:
             logger.runbook_failed(self.name, exc.step_name, exc.condition)
-            executed_steps.append(StepResult(name=exc.step_name, status="failed"))
+            executed_steps.append(
+                StepResult(name=exc.step_name, status="failed", duration_seconds=_elapsed(started_at))
+            )
             self._run_failure_handler(context, logger)
-            return RunbookResult.failure(self.name, context, executed_steps, exc)
+            return RunbookResult.failure(self.name, context, executed_steps, exc, duration_seconds=_elapsed(started_at))
 
     def run(self, context: Context) -> None:
         result = self.execute(context)
@@ -286,3 +297,7 @@ class Runbook:
             self.on_failure(context)
         except Exception as exc:
             logger.handler_failed("runbook notify_on_failure", exc)
+
+
+def _elapsed(started_at: float) -> float:
+    return round(monotonic() - started_at, 6)

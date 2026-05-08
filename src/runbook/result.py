@@ -18,6 +18,7 @@ class StepResult:
     status: str = "passed"
     message: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
+    duration_seconds: Optional[float] = None
 
     @property
     def passed(self) -> bool:
@@ -41,6 +42,7 @@ class StepResult:
             "status": self.status,
             "message": self.message,
             "warnings": list(self.warnings),
+            "duration_seconds": self.duration_seconds,
         }
 
 
@@ -53,6 +55,7 @@ class RunbookResult:
     context: Context
     steps: List[StepResult] = field(default_factory=list)
     error: Optional[RunbookFailedError] = None
+    duration_seconds: Optional[float] = None
 
     @property
     def passed(self) -> bool:
@@ -88,6 +91,7 @@ class RunbookResult:
                 "failed": self.failed_count,
                 "skipped": self.skipped_count,
                 "warned": self.warned_count,
+                "duration_seconds": self.duration_seconds,
             },
             "steps": [step.to_dict() for step in self.steps],
             "error": _error_to_dict(self.error),
@@ -102,8 +106,14 @@ class RunbookResult:
         return json.dumps(self.to_dict(include_context=include_context), **kwargs)
 
     @classmethod
-    def success(cls, name: Optional[str], context: Context, steps: List[StepResult]) -> "RunbookResult":
-        return cls(name=name, status="passed", context=context, steps=steps)
+    def success(
+        cls,
+        name: Optional[str],
+        context: Context,
+        steps: List[StepResult],
+        duration_seconds: Optional[float] = None,
+    ) -> "RunbookResult":
+        return cls(name=name, status="passed", context=context, steps=steps, duration_seconds=duration_seconds)
 
     @classmethod
     def failure(
@@ -112,8 +122,16 @@ class RunbookResult:
         context: Context,
         steps: List[StepResult],
         error: RunbookFailedError,
+        duration_seconds: Optional[float] = None,
     ) -> "RunbookResult":
-        return cls(name=name, status="failed", context=context, steps=steps, error=error)
+        return cls(
+            name=name,
+            status="failed",
+            context=context,
+            steps=steps,
+            error=error,
+            duration_seconds=duration_seconds,
+        )
 
 
 def _error_to_dict(error: Optional[RunbookFailedError]) -> Optional[dict[str, str]]:
