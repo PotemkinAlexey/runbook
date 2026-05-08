@@ -44,6 +44,24 @@ def airflow_callable(**context):
 
 `run_task()` converts `RunbookFailedError` into Airflow's `AirflowFailException`.
 
+## HTTP
+
+HTTP helpers are available from `runbook.integrations.http`.
+
+```python
+from runbook import Runbook, equals, step
+from runbook.integrations.http import get_json, post_json
+
+checks = Runbook("api").add(
+    step("Check API")
+    .load("response", get_json("https://example.com/status"))
+    .require(equals("response.ok", True), "API is not healthy")
+    .then(post_json("https://example.com/audit", "response"))
+)
+```
+
+The HTTP integration uses the Python standard library.
+
 ## Writing an Integration
 
 An integration usually exposes loaders and actions.
