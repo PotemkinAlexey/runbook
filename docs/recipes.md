@@ -89,6 +89,20 @@ runbook = Runbook("api").add(
 )
 ```
 
+## Retry a Transient Check
+
+```python
+from runbook import Runbook, equals, step
+from runbook.integrations.http import get_json
+
+runbook = Runbook("api").add(
+    step("Health")
+    .retry(times=3, delay=5)
+    .load("response", get_json("https://example.com/health"))
+    .require(equals("response.status", "ok"), "Service is unhealthy")
+)
+```
+
 ## Use a Custom Check
 
 ```python

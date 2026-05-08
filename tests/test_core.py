@@ -62,6 +62,21 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertEqual(raised.exception.message, "too late")
 
+    def test_step_retry_retries_failed_attempts(self):
+        context = {"attempts": 0}
+
+        def flaky_loader(ctx):
+            ctx["attempts"] += 1
+            return ctx["attempts"]
+
+        step("retry").retry(times=2).load("value", flaky_loader).require(gt("value", 1)).run(context)
+
+        self.assertEqual(context["attempts"], 2)
+
+    def test_step_retry_rejects_invalid_attempts(self):
+        with self.assertRaises(ValueError):
+            step("bad").retry(times=0)
+
     def test_runbook_raises_runbook_error_without_airflow(self):
         runbook = Runbook().add_step(Step("fail").expect("ready", "not ready"))
 

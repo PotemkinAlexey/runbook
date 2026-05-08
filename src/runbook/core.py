@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any, Callable, List, Optional
 
 from jinja2 import Template
@@ -29,6 +29,8 @@ class Step:
         self.context_modifiers: List[ContextModifier] = []
         self.actions: List[Action] = []
         self.on_expect_failure: List[Action] = []
+        self.retry_attempts = 1
+        self.retry_delay_seconds = 0.0
         self._logger = get_runbook_logger()
 
     def expect(self, expr: str, message: str = "Expectation failed") -> "Step":
@@ -50,6 +52,15 @@ class Step:
 
     def warn_when(self, check: Check, message: str = "Warning condition matched") -> "Step":
         self.warning_conditions.append((check, message))
+        return self
+
+    def retry(self, times: int, delay: float = 0.0) -> "Step":
+        if times < 1:
+            raise ValueError("retry times must be >= 1")
+        if delay < 0:
+            raise ValueError("retry delay must be >= 0")
+        self.retry_attempts = times
+        self.retry_delay_seconds = delay
         return self
 
     def with_data(self, key: str, value: Any) -> "Step":
@@ -106,6 +117,19 @@ class Step:
         active_logger = logger or self._logger
         active_logger.step_started(self.name, index=index, total=total)
 
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                return self._run_once(context, active_logger, started_at)
+            except RunbookFailedError as exc:
+                if attempt >= self.retry_attempts:
+                    raise
+                active_logger.step_retry(self.name, attempt + 1, self.retry_attempts, exc.condition)
+                if self.retry_delay_seconds:
+                    sleep(self.retry_delay_seconds)
+
+        raise RuntimeError("unreachable retry state")
+
+    def _run_once(self, context: Context, active_logger: RunbookLogger, started_at: float) -> StepResult:
         for modifier in self.context_modifiers:
             modifier(context)
 

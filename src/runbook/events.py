@@ -62,6 +62,9 @@ class RunbookLogger:
     def step_failed(self, name: str, condition: str) -> None:
         self.logger.error("runbook | step fail: %s [%s]", name, condition)
 
+    def step_retry(self, name: str, attempt: int, total: int, condition: str) -> None:
+        self.logger.warning("runbook | step retry: %s attempt %s/%s after [%s]", name, attempt, total, condition)
+
     def step_warning(self, name: str, message: str) -> None:
         self.logger.warning("runbook | step warn: %s - %s", name, message)
 

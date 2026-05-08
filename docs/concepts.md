@@ -72,6 +72,12 @@ from runbook import empty, gt
 )
 ```
 
+Retry transient failures:
+
+```python
+step("Check API").retry(times=3, delay=5).require(...)
+```
+
 ## Actions
 
 Actions run after a step passes its checks.
