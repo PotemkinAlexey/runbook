@@ -17,7 +17,7 @@ runbook = (
     Runbook("Daily checks")
     .add(
         step("Check files")
-        .with_data("files", ["daily.csv"])
+        .set("files", ["daily.csv"])
         .skip_when(not_empty("maintenance_window"), "Maintenance window is active")
         .require(not_empty("files"), "No files found")
         .require(matches_any("files", "*.csv"), "CSV file is missing")
@@ -61,7 +61,7 @@ checks = (
     .notify_on_failure(slack_notify("slack_default", "#alerts", "Runbook failed", "{{ step_name }} failed"))
     .add(
         step("Check input files")
-        .with_loader(s3_keys("aws_default", "bucket", "daily/{{ ds }}/"), "files")
+        .load("files", s3_keys("aws_default", "bucket", "daily/{{ ds }}/"))
         .require(not_empty("files"), "No input files found")
     )
 )

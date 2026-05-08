@@ -15,6 +15,14 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(context["count"], 3)
         self.assertEqual(context["captured"], 3)
 
+    def test_step_set_and_load_aliases_update_context(self):
+        context = {}
+
+        step("aliases").set("base", 2).load("count", lambda ctx: ctx["base"] + 1).run(context)
+
+        self.assertEqual(context["base"], 2)
+        self.assertEqual(context["count"], 3)
+
     def test_step_supports_declarative_requirements(self):
         context = {}
 

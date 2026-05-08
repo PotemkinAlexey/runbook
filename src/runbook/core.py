@@ -54,9 +54,15 @@ class Step:
         self.context_modifiers.append(lambda context: context.update({key: value}))
         return self
 
+    def set(self, key: str, value: Any) -> "Step":
+        return self.with_data(key, value)
+
     def with_loader(self, loader_fn: Loader, key: str) -> "Step":
         self.context_modifiers.append(lambda context: context.update({key: loader_fn(context)}))
         return self
+
+    def load(self, key: str, loader_fn: Loader) -> "Step":
+        return self.with_loader(loader_fn, key)
 
     def with_external(self, modifier_fn: ContextModifier) -> "Step":
         self.context_modifiers.append(modifier_fn)
