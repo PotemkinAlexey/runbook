@@ -64,6 +64,13 @@ result = runbook.execute_parallel(context, max_workers=4)
 
 Each step receives a copy of the initial context. Successful step contexts are merged back in step order. If steps depend on previous step output, use `execute()`.
 
+Expanded items can also run in parallel:
+
+```python
+with runbook.expand("items", parallel=True, max_workers=8) as each:
+    each.add(step("Check item").require(...))
+```
+
 ## Step Results
 
 Each step returns a `StepResult`.

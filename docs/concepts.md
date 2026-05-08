@@ -113,6 +113,15 @@ with runbook.expand("items") as each:
 
 The context manager form resets expansion state if an exception happens while defining expanded steps.
 
+Expanded items can run in parallel when each item is independent:
+
+```python
+with runbook.expand("items", parallel=True, max_workers=8) as each:
+    each.add(step("Check item").require(gt("item", 0)))
+```
+
+Parallel expanded steps receive a copy of the parent context plus `item`. Item contexts are not merged back into the parent context.
+
 ## Execution Logging
 
 Runbook emits lifecycle logs through the `runbook` logger:

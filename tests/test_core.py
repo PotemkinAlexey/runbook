@@ -1,4 +1,5 @@
 import unittest
+from threading import Lock
 from time import sleep
 
 from runbook import Runbook, RunbookFailedError, Step, empty, gt, if_else, matches_any, not_empty, safe_eval, step
@@ -148,6 +149,24 @@ class RunbookCoreTest(unittest.TestCase):
         runbook.expand("items").add(step("check item").require(gt("item", 0))).end_expand()
 
         self.assertTrue(runbook.execute({}).passed)
+
+    def test_runbook_expand_can_run_items_in_parallel(self):
+        seen = []
+        lock = Lock()
+
+        def capture(ctx):
+            sleep(0.01)
+            with lock:
+                seen.append(ctx["item"])
+
+        runbook = Runbook("expand").add(step("load").set("items", [1, 2, 3]))
+        with runbook.expand("items", parallel=True, max_workers=3) as each:
+            each.add(step("capture").then(capture))
+
+        result = runbook.execute({})
+
+        self.assertTrue(result.passed)
+        self.assertEqual(sorted(seen), [1, 2, 3])
 
     def test_runbook_execute_parallel_runs_independent_steps(self):
         result = (

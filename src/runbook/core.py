@@ -234,6 +234,8 @@ class Runbook:
         self.on_failure: Optional[Action] = None
         self.expander_key: Optional[str] = None
         self.expander_steps: List[Step] = []
+        self.expander_parallel = False
+        self.expander_max_workers: Optional[int] = None
         self.in_expand_mode = False
 
     def notify_on_failure(self, fn: Action) -> "Runbook":
@@ -250,10 +252,17 @@ class Runbook:
     def add(self, step: Step) -> "Runbook":
         return self.add_step(step)
 
-    def expand(self, key: str) -> "Expansion":
+    def expand(
+        self,
+        key: str,
+        parallel: bool = False,
+        max_workers: Optional[int] = None,
+    ) -> "Expansion":
         if self.in_expand_mode:
             raise RuntimeError("nested expand() is not supported")
         self.expander_key = key
+        self.expander_parallel = parallel
+        self.expander_max_workers = max_workers
         self.in_expand_mode = True
         return Expansion(self)
 
@@ -263,6 +272,8 @@ class Runbook:
 
         steps_to_run = list(self.expander_steps)
         expander_key = self.expander_key
+        parallel = self.expander_parallel
+        max_workers = self.expander_max_workers
 
         def run_expander(context: Context) -> None:
             logger = get_runbook_logger()
@@ -272,23 +283,28 @@ class Runbook:
                 return
 
             logger.expand_started(expander_key, len(items))
+            if parallel:
+                _run_expanded_items_parallel(items, context, steps_to_run, logger, max_workers)
+                return
+
             for item in items:
-                sub_context = context.copy()
-                sub_context["item"] = item
-                for step in steps_to_run:
-                    step.run(sub_context, logger=logger)
+                _run_expanded_item(item, context, steps_to_run, logger)
 
         wrapper_step = Step(f"Expand[{expander_key}]").then(run_expander)
         self.steps.append(wrapper_step)
 
         self.expander_key = None
         self.expander_steps = []
+        self.expander_parallel = False
+        self.expander_max_workers = None
         self.in_expand_mode = False
         return self
 
     def _discard_expand(self) -> None:
         self.expander_key = None
         self.expander_steps = []
+        self.expander_parallel = False
+        self.expander_max_workers = None
         self.in_expand_mode = False
 
     def execute(self, context: Context) -> RunbookResult:
@@ -410,6 +426,29 @@ def _run_step_in_context_copy(
 
 def _ordered_step_results(results_by_index: dict[int, StepResult]) -> List[StepResult]:
     return [results_by_index[index] for index in sorted(results_by_index)]
+
+
+def _run_expanded_item(item: Any, context: Context, steps_to_run: List[Step], logger: RunbookLogger) -> None:
+    sub_context = context.copy()
+    sub_context["item"] = item
+    for step in steps_to_run:
+        step.run(sub_context, logger=logger)
+
+
+def _run_expanded_items_parallel(
+    items: list[Any],
+    context: Context,
+    steps_to_run: List[Step],
+    logger: RunbookLogger,
+    max_workers: Optional[int],
+) -> None:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_run_expanded_item, item, context, steps_to_run, logger)
+            for item in items
+        ]
+        for future in as_completed(futures):
+            future.result()
 
 
 @contextmanager
