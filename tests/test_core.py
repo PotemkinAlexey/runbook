@@ -1,6 +1,6 @@
 import unittest
 
-from runbook import Runbook, RunbookFailedError, Step, if_else
+from runbook import Runbook, RunbookFailedError, Step, gt, if_else, matches_any, not_empty, step
 
 
 class RunbookCoreTest(unittest.TestCase):
@@ -14,6 +14,19 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertEqual(context["count"], 3)
         self.assertEqual(context["captured"], 3)
+
+    def test_step_supports_declarative_requirements(self):
+        context = {}
+
+        step("check files").with_data("files", ["daily.csv"]).require(not_empty("files")).require(
+            matches_any("files", "*.csv")
+        ).run(context)
+
+    def test_requirement_failure_raises_runbook_error(self):
+        with self.assertRaises(RunbookFailedError) as raised:
+            Step("count").with_data("row_count", 0).require(gt("row_count", 0), "no rows").run({})
+
+        self.assertEqual(raised.exception.condition, "gt(row_count, 0)")
 
     def test_runbook_raises_runbook_error_without_airflow(self):
         runbook = Runbook().add_step(Step("fail").expect("ready", "not ready"))

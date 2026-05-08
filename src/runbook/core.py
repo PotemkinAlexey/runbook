@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from jinja2 import Template
 
+from .checks import Check
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 
@@ -22,6 +23,7 @@ class Step:
         self.name = name
         self.expect_expr: Optional[str] = None
         self.expect_msg = ""
+        self.requirements: List[tuple[Check, str]] = []
         self.context_modifiers: List[ContextModifier] = []
         self.actions: List[Action] = []
         self.on_expect_failure: List[Action] = []
@@ -29,6 +31,10 @@ class Step:
     def expect(self, expr: str, message: str = "Expectation failed") -> "Step":
         self.expect_expr = expr
         self.expect_msg = message
+        return self
+
+    def require(self, check: Check, message: str = "Requirement failed") -> "Step":
+        self.requirements.append((check, message))
         return self
 
     def with_data(self, key: str, value: Any) -> "Step":
@@ -74,109 +80,67 @@ class Step:
         for modifier in self.context_modifiers:
             modifier(context)
 
-        if self.expect_expr:
-            logging.info("Evaluating: %s", self.expect_expr)
-            try:
-                result = safe_eval(self.expect_expr, context)
-            except StepExecutionError as exc:
-                raise RunbookFailedError(self.name, self.expect_expr, f"Evaluation failed: {exc}") from None
-
-            if not result:
-                context["step_name"] = self.name
-                rendered_msg = self._render_expect_message(context)
-
-                for notify_fn in self.on_expect_failure:
-                    try:
-                        notify_fn(context)
-                    except Exception as exc:
-                        logging.error("[notify_on_failure] Failed to run notifier: %s", exc)
-
-                raise RunbookFailedError(self.name, self.expect_expr, rendered_msg)
+        self._run_expression_expectation(context)
+        self._run_requirements(context)
 
         for action in self.actions:
             action(context)
 
-    def sftp(self, conn_id: str, path: str, key: str = "ftp_files") -> "Step":
-        def loader(context: Context) -> List[str]:
-            import paramiko
-            from airflow.hooks.base import BaseHook
+    def _run_expression_expectation(self, context: Context) -> None:
+        if not self.expect_expr:
+            return
 
-            conn = BaseHook.get_connection(conn_id)
-            resolved_path = Template(path).render(context)
-            transport = paramiko.Transport((conn.host, 22))
+        logging.info("Evaluating: %s", self.expect_expr)
+        try:
+            result = safe_eval(self.expect_expr, context)
+        except StepExecutionError as exc:
+            raise RunbookFailedError(self.name, self.expect_expr, f"Evaluation failed: {exc}") from None
+
+        if not result:
+            self._fail(context, self.expect_expr, self.expect_msg)
+
+    def _run_requirements(self, context: Context) -> None:
+        for check, message in self.requirements:
+            logging.info("Checking: %s", check.name)
             try:
-                transport.connect(username=conn.login, password=conn.password)
-                sftp = paramiko.SFTPClient.from_transport(transport)
-                try:
-                    sftp.chdir(resolved_path)
-                    return sftp.listdir(path=".")
-                finally:
-                    sftp.close()
-            finally:
-                transport.close()
+                result = check(context)
+            except Exception as exc:
+                raise RunbookFailedError(self.name, check.name, f"Check failed with error: {exc}") from None
 
-        return self.with_loader(loader, key)
+            if not result:
+                self._fail(context, check.name, message)
 
-    def ftp(self, conn_id: str, path: str, key: str = "ftp_files") -> "Step":
-        def loader(context: Context) -> List[str]:
-            from ftplib import FTP_TLS
+    def _fail(self, context: Context, condition: str, message: str) -> None:
+        context["step_name"] = self.name
+        rendered_msg = self._render_message(message, context)
 
-            from airflow.hooks.base import BaseHook
-
-            conn = BaseHook.get_connection(conn_id)
-            resolved_path = Template(path).render(context)
-            ftp = FTP_TLS(host=conn.host, user=conn.login, passwd=conn.password)
+        for notify_fn in self.on_expect_failure:
             try:
-                ftp.prot_p()
-                ftp.cwd(resolved_path)
-                return ftp.nlst()
-            finally:
-                ftp.quit()
+                notify_fn(context)
+            except Exception as exc:
+                logging.error("[notify_on_failure] Failed to run notifier: %s", exc)
 
-        return self.with_loader(loader, key)
-
-    def azure(self, conn_id: str, container: str, prefix: str, key: str = "azure_files") -> "Step":
-        def loader(context: Context) -> List[str]:
-            from airflow.providers.microsoft.azure.hooks.wasb import WasbHook
-
-            hook = WasbHook(conn_id)
-            resolved_prefix = Template(prefix).render(context)
-            return hook.get_blobs_list(container, prefix=resolved_prefix)
-
-        return self.with_loader(loader, key)
-
-    def s3(self, conn_id: str, bucket: str, prefix: str, key: str = "s3_files") -> "Step":
-        def loader(context: Context) -> Optional[List[str]]:
-            from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-
-            hook = S3Hook(aws_conn_id=conn_id)
-            resolved_prefix = Template(prefix).render(context)
-            return hook.list_keys(bucket, prefix=resolved_prefix)
-
-        return self.with_loader(loader, key)
-
-    def snowflake_query(self, sql: str, conn_id: str, key: str = "query_count") -> "Step":
-        def loader(context: Context) -> int:
-            from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-
-            rendered_sql = Template(sql).render(context)
-            hook = SnowflakeHook(conn_id)
-            records = hook.get_records(rendered_sql)
-            return len(records)
-
-        return self.with_loader(loader, key)
+        raise RunbookFailedError(self.name, condition, rendered_msg)
 
     def _render_expect_message(self, context: Context) -> str:
+        return self._render_message(self.expect_msg, context)
+
+    def _render_message(self, message: str, context: Context) -> str:
         try:
-            return Template(self.expect_msg).render(context)
+            return Template(message).render(context)
         except Exception as exc:
             return f"[render error in expect_msg] {exc}"
+
+
+def step(name: str) -> Step:
+    return Step(name)
 
 
 class Runbook:
     """A sequence of runbook steps."""
 
-    def __init__(self):
+    def __init__(self, name: Optional[str] = None):
+        self.name = name
         self.steps: List[Step] = []
         self.on_failure: Optional[Action] = None
         self.expander_key: Optional[str] = None
@@ -193,6 +157,9 @@ class Runbook:
         else:
             self.steps.append(step)
         return self
+
+    def add(self, step: Step) -> "Runbook":
+        return self.add_step(step)
 
     def expand(self, key: str) -> "Runbook":
         self.expander_key = key
@@ -229,14 +196,14 @@ class Runbook:
 
     def run(self, context: Context) -> None:
         try:
-            logging.info("Starting Runbook")
+            logging.info("Starting Runbook%s", f": {self.name}" if self.name else "")
             for step in self.steps:
                 step.run(context)
             logging.info("Runbook completed successfully")
         except RunbookFailedError as exc:
             logging.error(str(exc))
             self._run_failure_handler(context)
-            _raise_airflow_fail_exception(exc)
+            raise exc from None
 
     def _run_failure_handler(self, context: Context) -> None:
         if not self.on_failure:
@@ -245,11 +212,3 @@ class Runbook:
             self.on_failure(context)
         except Exception as exc:
             logging.error("[runbook notify_on_failure] Failed to run handler: %s", exc)
-
-
-def _raise_airflow_fail_exception(error: RunbookFailedError) -> None:
-    try:
-        from airflow.exceptions import AirflowFailException
-    except ImportError:
-        raise error from None
-    raise AirflowFailException(str(error)) from None
