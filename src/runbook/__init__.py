@@ -1,6 +1,6 @@
 """Public API for the runbook library."""
 
-from .actions import external, if_, if_else, instant_log, log, raise_, xcom_push
+from .actions import external, if_, if_else, instant_log, log, raise_
 from .checks import (
     Check,
     all_of,
@@ -68,5 +68,4 @@ __all__ = [
     "raise_",
     "safe_eval",
     "step",
-    "xcom_push",
 ]

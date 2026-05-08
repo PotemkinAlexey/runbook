@@ -48,21 +48,6 @@ def log(msg: Union[str, Callable[[Context], Any]]) -> Action:
     return action
 
 
-def xcom_push(key: str, value_fn: Callable[[Context], Any]) -> Action:
-    """Create an action that pushes a value to Airflow XCom when a task instance exists."""
-
-    def action(context: Context) -> None:
-        ti = context.get("ti")
-        if not ti:
-            logging.warning("No TaskInstance in context, skipping XCom push.")
-            return
-        value = value_fn(context)
-        ti.xcom_push(key=key, value=value)
-        logging.info("XCom pushed: %s = %r", key, value)
-
-    return action
-
-
 def if_(expr: str) -> Callable[[Action], Action]:
     """Wrap an action so it only runs when the expression evaluates to true."""
 

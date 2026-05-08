@@ -80,16 +80,6 @@ class RunbookLogger:
     def handler_failed(self, label: str, error: Exception) -> None:
         self.logger.error("runbook | handler fail: %s - %s", label, error)
 
-    def xcom_pushed(self, key: str, value) -> None:
-        self.logger.info("runbook | xcom push: %s = %r", key, value)
-
-    def xcom_skipped(self, key: str) -> None:
-        self.logger.warning("runbook | xcom skip: no ti for key=%s", key)
-
-    def xcom_failed(self, key: str, error: Exception) -> None:
-        self.logger.error("runbook | xcom fail: %s - %s", key, error)
-
-
 def _name(name: Optional[str]) -> str:
     return name or "<unnamed>"
 

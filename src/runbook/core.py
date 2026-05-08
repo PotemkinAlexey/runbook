@@ -5,7 +5,7 @@ from __future__ import annotations
 import signal
 from contextlib import contextmanager
 from time import monotonic, sleep
-from typing import Any, Callable, List, Optional
+from typing import Any, List, Optional
 
 from jinja2 import Template
 
@@ -97,22 +97,6 @@ class Step:
     def notify_on_failure(self, *notify_fns: Action) -> "Step":
         """Register actions that run when this step's expectation fails."""
         self.on_expect_failure.extend(notify_fns)
-        return self
-
-    def xcom_push(self, key: str, value_fn: Callable[[Context], Any]) -> "Step":
-        def action(context: Context) -> None:
-            try:
-                value = value_fn(context)
-                ti = context.get("ti")
-                if ti is not None:
-                    ti.xcom_push(key=key, value=value)
-                    self._logger.xcom_pushed(key, value)
-                else:
-                    self._logger.xcom_skipped(key)
-            except Exception as exc:
-                self._logger.xcom_failed(key, exc)
-
-        self.actions.append(action)
         return self
 
     def run(
