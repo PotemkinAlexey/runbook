@@ -15,6 +15,8 @@ class StepResult:
 
     name: str
     status: str = "passed"
+    message: Optional[str] = None
+    warnings: List[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -23,6 +25,14 @@ class StepResult:
     @property
     def failed(self) -> bool:
         return self.status == "failed"
+
+    @property
+    def skipped(self) -> bool:
+        return self.status == "skipped"
+
+    @property
+    def warned(self) -> bool:
+        return bool(self.warnings)
 
 
 @dataclass(frozen=True)

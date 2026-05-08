@@ -22,6 +22,9 @@ class Step:
         self.expect_expr: Optional[str] = None
         self.expect_msg = ""
         self.requirements: List[tuple[Check, str]] = []
+        self.skip_conditions: List[tuple[Check, str]] = []
+        self.warning_conditions: List[tuple[Check, str]] = []
+        self.failure_conditions: List[tuple[Check, str]] = []
         self.context_modifiers: List[ContextModifier] = []
         self.actions: List[Action] = []
         self.on_expect_failure: List[Action] = []
@@ -33,6 +36,18 @@ class Step:
 
     def require(self, check: Check, message: str = "Requirement failed") -> "Step":
         self.requirements.append((check, message))
+        return self
+
+    def fail_when(self, check: Check, message: str = "Failure condition matched") -> "Step":
+        self.failure_conditions.append((check, message))
+        return self
+
+    def skip_when(self, check: Check, message: str = "Skipped") -> "Step":
+        self.skip_conditions.append((check, message))
+        return self
+
+    def warn_when(self, check: Check, message: str = "Warning condition matched") -> "Step":
+        self.warning_conditions.append((check, message))
         return self
 
     def with_data(self, key: str, value: Any) -> "Step":
@@ -72,17 +87,34 @@ class Step:
         self.actions.append(action)
         return self
 
-    def run(self, context: Context) -> None:
+    def run(self, context: Context) -> StepResult:
         logging.info("Step: %s", self.name)
 
         for modifier in self.context_modifiers:
             modifier(context)
 
+        skip_result = self._run_skip_conditions(context)
+        if skip_result:
+            return skip_result
+
         self._run_expression_expectation(context)
+        self._run_failure_conditions(context)
         self._run_requirements(context)
+        warnings = self._run_warning_conditions(context)
 
         for action in self.actions:
             action(context)
+
+        return StepResult(name=self.name, warnings=warnings)
+
+    def _run_skip_conditions(self, context: Context) -> Optional[StepResult]:
+        for check, message in self.skip_conditions:
+            logging.info("Checking skip condition: %s", check.name)
+            if self._check_matches(check, context):
+                rendered_msg = self._render_message(message, context)
+                logging.info("Step skipped: %s", rendered_msg)
+                return StepResult(name=self.name, status="skipped", message=rendered_msg)
+        return None
 
     def _run_expression_expectation(self, context: Context) -> None:
         if not self.expect_expr:
@@ -97,16 +129,33 @@ class Step:
         if not result:
             self._fail(context, self.expect_expr, self.expect_msg)
 
+    def _run_failure_conditions(self, context: Context) -> None:
+        for check, message in self.failure_conditions:
+            logging.info("Checking failure condition: %s", check.name)
+            if self._check_matches(check, context):
+                self._fail(context, check.name, message)
+
     def _run_requirements(self, context: Context) -> None:
         for check, message in self.requirements:
             logging.info("Checking: %s", check.name)
-            try:
-                result = check(context)
-            except Exception as exc:
-                raise RunbookFailedError(self.name, check.name, f"Check failed with error: {exc}") from None
-
-            if not result:
+            if not self._check_matches(check, context):
                 self._fail(context, check.name, message)
+
+    def _run_warning_conditions(self, context: Context) -> List[str]:
+        warnings: List[str] = []
+        for check, message in self.warning_conditions:
+            logging.info("Checking warning condition: %s", check.name)
+            if self._check_matches(check, context):
+                rendered_msg = self._render_message(message, context)
+                logging.warning("Step warning: %s", rendered_msg)
+                warnings.append(rendered_msg)
+        return warnings
+
+    def _check_matches(self, check: Check, context: Context) -> bool:
+        try:
+            return check(context)
+        except Exception as exc:
+            raise RunbookFailedError(self.name, check.name, f"Check failed with error: {exc}") from None
 
     def _fail(self, context: Context, condition: str, message: str) -> None:
         context["step_name"] = self.name
@@ -198,8 +247,7 @@ class Runbook:
 
         try:
             for step in self.steps:
-                step.run(context)
-                executed_steps.append(StepResult(name=step.name))
+                executed_steps.append(step.run(context))
             logging.info("Runbook completed successfully")
             return RunbookResult.success(self.name, context, executed_steps)
         except RunbookFailedError as exc:

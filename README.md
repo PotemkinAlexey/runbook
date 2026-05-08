@@ -18,6 +18,7 @@ runbook = (
     .add(
         step("Check files")
         .with_data("files", ["daily.csv"])
+        .skip_when(not_empty("maintenance_window"), "Maintenance window is active")
         .require(not_empty("files"), "No files found")
         .require(matches_any("files", "*.csv"), "CSV file is missing")
         .then(log("Found {{ files|length }} files"))
