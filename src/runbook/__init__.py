@@ -23,6 +23,7 @@ from .core import Runbook, Step, step
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 from .notifications import email_notify
+from .reporting import format_failure
 from .result import RunbookResult, StepResult
 from .types import Action, Context, ContextModifier, Loader
 
@@ -47,6 +48,7 @@ __all__ = [
     "equals",
     "exists",
     "external",
+    "format_failure",
     "gt",
     "gte",
     "if_",

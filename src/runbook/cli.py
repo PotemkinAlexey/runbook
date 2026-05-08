@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .core import Runbook
+from .reporting import format_failure
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -46,7 +47,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         if result.passed:
             print("passed")
             return 0
-        print(result.error, file=sys.stderr)
+        print(format_failure(result.error, result.context, result.name), file=sys.stderr)
         return 1
 
     parser.error(f"unknown command: {args.command}")

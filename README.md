@@ -38,6 +38,15 @@ if result.failed:
     print(result.error)
 ```
 
+For readable diagnostics with redacted secrets:
+
+```python
+from runbook import format_failure
+
+if result.failed:
+    print(format_failure(result.error, result.context, result.name))
+```
+
 The core package only depends on Jinja2 and can run in any Python process.
 External systems are optional integrations.
 
