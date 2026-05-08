@@ -47,6 +47,8 @@ step("Load").load("files", lambda context: ["daily.csv"])
 
 Checks are predicates over the context.
 
+See [Public API](api.md) for the stable import surface.
+
 ```python
 from runbook import gt, not_empty
 

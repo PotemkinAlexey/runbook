@@ -1,0 +1,106 @@
+# Public API
+
+This page documents the intended stable surface of `runbook`.
+
+## Core
+
+```python
+from runbook import Runbook, Step, step
+```
+
+- `Runbook(name=None)`: sequence of steps
+- `step(name)`: convenience constructor for `Step`
+- `Step(name)`: step class
+
+Preferred style:
+
+```python
+Runbook("checks").add(step("Check").require(...))
+```
+
+## Checks
+
+```python
+from runbook import (
+    Check,
+    all_of,
+    any_of,
+    contains,
+    custom,
+    empty,
+    equals,
+    exists,
+    gt,
+    gte,
+    lt,
+    lte,
+    matches_any,
+    missing,
+    not_,
+    not_empty,
+)
+```
+
+Checks are the preferred validation API.
+
+## Actions and Context Helpers
+
+```python
+from runbook import external, if_, if_else, instant_log, log, raise_
+```
+
+`if_` and `if_else` are available for compatibility and advanced cases. Prefer step policies such as `skip_when`, `warn_when`, `fail_when`, and `require` for new code.
+
+## Execution Results
+
+```python
+from runbook import RunbookResult, StepResult
+```
+
+Use `Runbook.execute()` to receive a `RunbookResult`.
+
+## Errors
+
+```python
+from runbook import RunbookFailedError, StepExecutionError
+```
+
+## Logging
+
+```python
+from runbook import RunbookLogger, configure_runbook_logging, get_runbook_logger
+```
+
+## Reporting
+
+```python
+from runbook import format_failure
+```
+
+## Extension Types
+
+```python
+from runbook import Action, Context, ContextModifier, Loader
+```
+
+Use these in integrations and custom extensions.
+
+## Integrations
+
+Integrations are imported from their own modules:
+
+```python
+from runbook.integrations.airflow import run_task
+from runbook.integrations.files import glob_paths
+from runbook.integrations.http import get_json
+```
+
+Framework-specific helpers should not be imported from the root `runbook` namespace.
+
+## Legacy and Advanced API
+
+```python
+from runbook import safe_eval
+```
+
+`safe_eval` and `Step.expect()` remain available, but new code should prefer declarative checks through `require()`.
