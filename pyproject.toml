@@ -33,6 +33,9 @@ snowflake = [
     "apache-airflow-providers-snowflake",
 ]
 
+[project.scripts]
+runbook = "runbook.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["runbook*"]

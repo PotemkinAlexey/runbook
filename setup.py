@@ -22,4 +22,9 @@ setup(
         "slack": ["slack-sdk>=3.0"],
         "snowflake": ["apache-airflow-providers-snowflake"],
     },
+    entry_points={
+        "console_scripts": [
+            "runbook=runbook.cli:main",
+        ],
+    },
 )

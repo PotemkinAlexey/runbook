@@ -61,6 +61,26 @@ def airflow_callable(**context):
     run_task(checks, context)
 ```
 
+## CLI
+
+Create a Python file that exposes `runbook`, `checks`, or `build_runbook()`:
+
+```python
+from runbook import Runbook, not_empty, step
+
+runbook = Runbook("local").add(
+    step("Check input").require(not_empty("items"), "items are required")
+)
+```
+
+Run it:
+
+```bash
+runbook validate checks.py
+runbook list checks.py
+runbook run checks.py --context '{"items": [1, 2, 3]}'
+```
+
 ## License
 
 MIT
