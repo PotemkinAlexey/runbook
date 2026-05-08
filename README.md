@@ -81,6 +81,12 @@ runbook run checks.py --context '{"items": [1, 2, 3]}'
 - [Recipes](docs/recipes.md)
 - [Extending runbook](docs/extending.md)
 
+Build the docs site locally:
+
+```bash
+mkdocs serve
+```
+
 ## Current Status
 
 This is an early library API. The core direction is stable:

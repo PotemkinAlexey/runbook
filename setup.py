@@ -14,7 +14,7 @@ setup(
         "jinja2>=3.0",
     ],
     extras_require={
-        "dev": ["ruff>=0.5.0"],
+        "dev": ["mkdocs>=1.5", "ruff>=0.5.0"],
         "airflow": ["apache-airflow>=2.0"],
         "aws": ["apache-airflow-providers-amazon"],
         "azure": ["apache-airflow-providers-microsoft-azure"],

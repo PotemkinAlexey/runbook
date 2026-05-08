@@ -1,0 +1,18 @@
+site_name: runbook
+site_description: Embeddable Python toolkit for operational checks.
+repo_url: https://github.com/your-org/runbook
+
+theme:
+  name: mkdocs
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Core Concepts: concepts.md
+  - Checks: checks.md
+  - Execution Results: results.md
+  - Public API: api.md
+  - CLI: cli.md
+  - Integrations: integrations.md
+  - Recipes: recipes.md
+  - Extending: extending.md
