@@ -103,6 +103,19 @@ runbook = Runbook("api").add(
 )
 ```
 
+## Timeout a Slow Step
+
+```python
+from runbook import Runbook, not_empty, step
+
+runbook = Runbook("timeout").add(
+    step("Slow loader")
+    .timeout(seconds=30)
+    .load("items", lambda context: [])
+    .require(not_empty("items"), "No items")
+)
+```
+
 ## Use a Custom Check
 
 ```python

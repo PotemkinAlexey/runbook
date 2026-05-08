@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import signal
+from contextlib import contextmanager
 from time import monotonic, sleep
 from typing import Any, Callable, List, Optional
 
@@ -31,6 +33,7 @@ class Step:
         self.on_expect_failure: List[Action] = []
         self.retry_attempts = 1
         self.retry_delay_seconds = 0.0
+        self.timeout_seconds: Optional[float] = None
         self._logger = get_runbook_logger()
 
     def expect(self, expr: str, message: str = "Expectation failed") -> "Step":
@@ -61,6 +64,12 @@ class Step:
             raise ValueError("retry delay must be >= 0")
         self.retry_attempts = times
         self.retry_delay_seconds = delay
+        return self
+
+    def timeout(self, seconds: float) -> "Step":
+        if seconds <= 0:
+            raise ValueError("timeout seconds must be > 0")
+        self.timeout_seconds = seconds
         return self
 
     def with_data(self, key: str, value: Any) -> "Step":
@@ -119,7 +128,8 @@ class Step:
 
         for attempt in range(1, self.retry_attempts + 1):
             try:
-                return self._run_once(context, active_logger, started_at)
+                with _step_timeout(self.timeout_seconds, self.name):
+                    return self._run_once(context, active_logger, started_at)
             except RunbookFailedError as exc:
                 if attempt >= self.retry_attempts:
                     raise
@@ -325,3 +335,31 @@ class Runbook:
 
 def _elapsed(started_at: float) -> float:
     return round(monotonic() - started_at, 6)
+
+
+@contextmanager
+def _step_timeout(seconds: Optional[float], step_name: str):
+    if seconds is None:
+        yield
+        return
+
+    if not hasattr(signal, "setitimer"):
+        raise RuntimeError("step timeout is not supported on this platform")
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.setitimer(signal.ITIMER_REAL, 0)
+
+    def handle_timeout(signum, frame):
+        raise TimeoutError(f"step timed out after {seconds} seconds")
+
+    signal.signal(signal.SIGALRM, handle_timeout)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    except TimeoutError as exc:
+        raise RunbookFailedError(step_name, f"timeout({seconds})", str(exc)) from None
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        if previous_timer[0] > 0:
+            signal.setitimer(signal.ITIMER_REAL, previous_timer[0], previous_timer[1])
+        signal.signal(signal.SIGALRM, previous_handler)

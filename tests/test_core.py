@@ -1,4 +1,5 @@
 import unittest
+from time import sleep
 
 from runbook import Runbook, RunbookFailedError, Step, empty, gt, if_else, matches_any, not_empty, step
 
@@ -76,6 +77,16 @@ class RunbookCoreTest(unittest.TestCase):
     def test_step_retry_rejects_invalid_attempts(self):
         with self.assertRaises(ValueError):
             step("bad").retry(times=0)
+
+    def test_step_timeout_fails_slow_step(self):
+        with self.assertRaises(RunbookFailedError) as raised:
+            step("slow").timeout(0.01).then(lambda ctx: sleep(0.05)).run({})
+
+        self.assertEqual(raised.exception.condition, "timeout(0.01)")
+
+    def test_step_timeout_rejects_invalid_seconds(self):
+        with self.assertRaises(ValueError):
+            step("bad").timeout(0)
 
     def test_runbook_raises_runbook_error_without_airflow(self):
         runbook = Runbook().add_step(Step("fail").expect("ready", "not ready"))

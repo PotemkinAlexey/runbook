@@ -78,6 +78,12 @@ Retry transient failures:
 step("Check API").retry(times=3, delay=5).require(...)
 ```
 
+Limit execution time:
+
+```python
+step("Check API").timeout(seconds=30).require(...)
+```
+
 ## Actions
 
 Actions run after a step passes its checks.
