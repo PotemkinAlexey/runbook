@@ -9,11 +9,10 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
-from jinja2 import Template
-
 from runbook.context import enrich_airflow_context
 from runbook.exceptions import RunbookFailedError
 from runbook.notifications import email_notify_ses, slack_notify
+from runbook.templates import render_template
 from runbook.types import Context
 
 __all__ = [
@@ -46,7 +45,7 @@ def sftp_files(conn_id: str, path: str):
         from airflow.hooks.base import BaseHook
 
         conn = BaseHook.get_connection(conn_id)
-        resolved_path = Template(path).render(context)
+        resolved_path = render_template(path, context)
         transport = paramiko.Transport((conn.host, 22))
         try:
             transport.connect(username=conn.login, password=conn.password)
@@ -69,7 +68,7 @@ def ftp_files(conn_id: str, path: str):
         from airflow.hooks.base import BaseHook
 
         conn = BaseHook.get_connection(conn_id)
-        resolved_path = Template(path).render(context)
+        resolved_path = render_template(path, context)
         ftp = FTP_TLS(host=conn.host, user=conn.login, passwd=conn.password)
         try:
             ftp.prot_p()
@@ -86,7 +85,7 @@ def azure_blobs(conn_id: str, container: str, prefix: str):
         from airflow.providers.microsoft.azure.hooks.wasb import WasbHook
 
         hook = WasbHook(conn_id)
-        resolved_prefix = Template(prefix).render(context)
+        resolved_prefix = render_template(prefix, context)
         return hook.get_blobs_list(container, prefix=resolved_prefix)
 
     return loader
@@ -97,7 +96,7 @@ def s3_keys(conn_id: str, bucket: str, prefix: str):
         from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
         hook = S3Hook(aws_conn_id=conn_id)
-        resolved_prefix = Template(prefix).render(context)
+        resolved_prefix = render_template(prefix, context)
         return hook.list_keys(bucket, prefix=resolved_prefix)
 
     return loader
@@ -107,7 +106,7 @@ def snowflake_count(sql: str, conn_id: str):
     def loader(context: Context) -> int:
         from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 
-        rendered_sql = Template(sql).render(context)
+        rendered_sql = render_template(sql, context)
         hook = SnowflakeHook(conn_id)
         records = hook.get_records(rendered_sql)
         return len(records)

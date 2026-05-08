@@ -5,10 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, Union
 
-from jinja2 import Template
-
 from .evaluation import safe_eval
 from .exceptions import RunbookFailedError, StepExecutionError
+from .templates import render_template
 from .types import Action, Context
 
 
@@ -26,7 +25,7 @@ def instant_log(msg: Any, context: Optional[Context] = None) -> None:
     """Render and log a message immediately."""
     try:
         if context and isinstance(msg, str):
-            msg = Template(msg).render(context)
+            msg = render_template(msg, context)
     except Exception as exc:  # pragma: no cover - defensive logging path
         msg = f"[log render error] {exc}"
     logging.info(msg)
@@ -40,7 +39,7 @@ def log(msg: Union[str, Callable[[Context], Any]]) -> Action:
             if callable(msg):
                 rendered = msg(context)
             else:
-                rendered = Template(msg).render(context)
+                rendered = render_template(msg, context)
         except Exception as exc:  # pragma: no cover - defensive logging path
             rendered = f"[log render error] {exc}"
         logging.info(rendered)

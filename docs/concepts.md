@@ -98,6 +98,8 @@ step("Report").then(log("Done"))
 
 Actions receive the context and can perform side effects.
 
+Messages and integration paths use Jinja2 templates. Reused template strings are compiled once and cached by the library.
+
 ## Expand
 
 Use `expand()` when the same sub-steps should run for each item in a context list.

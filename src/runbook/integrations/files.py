@@ -7,8 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Template
-
+from runbook.templates import render_template
 from runbook.types import Context
 
 
@@ -61,4 +60,4 @@ def write_json(path: str, value_key: str, encoding: str = "utf-8", indent: int =
 
 
 def _render(value: str, context: Context) -> str:
-    return Template(value).render(context)
+    return render_template(value, context)

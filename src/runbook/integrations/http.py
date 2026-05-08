@@ -6,8 +6,7 @@ import json
 from typing import Any, Optional
 from urllib import request
 
-from jinja2 import Template
-
+from runbook.templates import render_template
 from runbook.types import Context
 
 
@@ -60,7 +59,7 @@ def _open(
 
 
 def _render(value: str, context: Context) -> str:
-    return Template(value).render(context)
+    return render_template(value, context)
 
 
 def _render_mapping(values: dict[str, str], context: Context) -> dict[str, str]:

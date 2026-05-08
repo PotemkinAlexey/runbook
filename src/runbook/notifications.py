@@ -8,9 +8,8 @@ import smtplib
 from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
 
-from jinja2 import Template
-
 from .context import enrich_airflow_context
+from .templates import render_template
 from .types import Context
 
 
@@ -124,7 +123,7 @@ def email_notify_ses(email_data: Dict[str, Any], conn_id: str = "aws_default"):
 
 def _render_template(template: str, context: Context, label: str) -> str:
     try:
-        return Template(template).render(context)
+        return render_template(template, context)
     except Exception as exc:
         logging.warning("[%s] Failed to render: %s", label, exc)
         return template

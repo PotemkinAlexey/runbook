@@ -7,13 +7,12 @@ from contextlib import contextmanager
 from time import monotonic, sleep
 from typing import Any, List, Optional
 
-from jinja2 import Template
-
 from .checks import Check
 from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .result import RunbookResult, StepResult
+from .templates import render_template
 from .types import Action, Context, ContextModifier, Loader
 
 
@@ -216,7 +215,7 @@ class Step:
 
     def _render_message(self, message: str, context: Context) -> str:
         try:
-            return Template(message).render(context)
+            return render_template(message, context)
         except Exception as exc:
             return f"[render error in expect_msg] {exc}"
 
