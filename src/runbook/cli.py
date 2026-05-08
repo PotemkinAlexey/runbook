@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .core import Runbook
+from .events import configure_runbook_logging
 from .reporting import format_failure
 
 
@@ -20,6 +21,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_parser = subparsers.add_parser("run", help="Run a runbook file")
     run_parser.add_argument("file", help="Python file that defines a runbook")
     run_parser.add_argument("--context", default="{}", help="JSON object used as the initial context")
+    run_parser.add_argument("--quiet", action="store_true", help="Disable runbook execution logs")
 
     validate_parser = subparsers.add_parser("validate", help="Validate that a runbook file can be loaded")
     validate_parser.add_argument("file", help="Python file that defines a runbook")
@@ -43,6 +45,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.command == "run":
         context = _parse_context(args.context)
+        if not args.quiet:
+            configure_runbook_logging()
         result = runbook.execute(context)
         if result.passed:
             print("passed")

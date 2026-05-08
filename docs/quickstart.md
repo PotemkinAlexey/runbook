@@ -5,7 +5,9 @@ This guide shows the smallest useful `runbook` workflow.
 ## 1. Define a Runbook
 
 ```python
-from runbook import Runbook, matches_any, not_empty, step
+from runbook import Runbook, configure_runbook_logging, matches_any, not_empty, step
+
+configure_runbook_logging()
 
 runbook = (
     Runbook("Daily input checks")

@@ -13,7 +13,9 @@ pip install -e .
 ## Quick Example
 
 ```python
-from runbook import Runbook, format_failure, log, matches_any, not_empty, step
+from runbook import Runbook, configure_runbook_logging, format_failure, log, matches_any, not_empty, step
+
+configure_runbook_logging()
 
 checks = (
     Runbook("Daily input checks")

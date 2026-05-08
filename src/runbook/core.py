@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable, List, Optional
 
 from jinja2 import Template
@@ -10,6 +9,7 @@ from jinja2 import Template
 from .checks import Check
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
+from .events import RunbookLogger, get_runbook_logger
 from .result import RunbookResult, StepResult
 from .types import Action, Context, ContextModifier, Loader
 
@@ -28,6 +28,7 @@ class Step:
         self.context_modifiers: List[ContextModifier] = []
         self.actions: List[Action] = []
         self.on_expect_failure: List[Action] = []
+        self._logger = get_runbook_logger()
 
     def expect(self, expr: str, message: str = "Expectation failed") -> "Step":
         self.expect_expr = expr
@@ -84,76 +85,84 @@ class Step:
                 ti = context.get("ti")
                 if ti is not None:
                     ti.xcom_push(key=key, value=value)
-                    logging.info("XCom pushed: %s = %r", key, value)
+                    self._logger.xcom_pushed(key, value)
                 else:
-                    logging.warning("[xcom_push] No 'ti' in context, skipping key=%s", key)
+                    self._logger.xcom_skipped(key)
             except Exception as exc:
-                logging.error("[xcom_push] Failed to push key=%s: %s", key, exc)
+                self._logger.xcom_failed(key, exc)
 
         self.actions.append(action)
         return self
 
-    def run(self, context: Context) -> StepResult:
-        logging.info("Step: %s", self.name)
+    def run(
+        self,
+        context: Context,
+        logger: Optional[RunbookLogger] = None,
+        index: Optional[int] = None,
+        total: Optional[int] = None,
+    ) -> StepResult:
+        active_logger = logger or self._logger
+        active_logger.step_started(self.name, index=index, total=total)
 
         for modifier in self.context_modifiers:
             modifier(context)
 
-        skip_result = self._run_skip_conditions(context)
+        skip_result = self._run_skip_conditions(context, active_logger)
         if skip_result:
+            active_logger.step_skipped(self.name, skip_result.message)
             return skip_result
 
-        self._run_expression_expectation(context)
-        self._run_failure_conditions(context)
-        self._run_requirements(context)
-        warnings = self._run_warning_conditions(context)
+        self._run_expression_expectation(context, active_logger)
+        self._run_failure_conditions(context, active_logger)
+        self._run_requirements(context, active_logger)
+        warnings = self._run_warning_conditions(context, active_logger)
 
         for action in self.actions:
             action(context)
 
+        active_logger.step_passed(self.name)
         return StepResult(name=self.name, warnings=warnings)
 
-    def _run_skip_conditions(self, context: Context) -> Optional[StepResult]:
+    def _run_skip_conditions(self, context: Context, logger: RunbookLogger) -> Optional[StepResult]:
         for check, message in self.skip_conditions:
-            logging.info("Checking skip condition: %s", check.name)
+            logger.check_started("skip", check.name)
             if self._check_matches(check, context):
                 rendered_msg = self._render_message(message, context)
-                logging.info("Step skipped: %s", rendered_msg)
                 return StepResult(name=self.name, status="skipped", message=rendered_msg)
         return None
 
-    def _run_expression_expectation(self, context: Context) -> None:
+    def _run_expression_expectation(self, context: Context, logger: RunbookLogger) -> None:
         if not self.expect_expr:
             return
 
-        logging.info("Evaluating: %s", self.expect_expr)
+        logger.check_started("expect", self.expect_expr)
         try:
             result = safe_eval(self.expect_expr, context)
         except StepExecutionError as exc:
             raise RunbookFailedError(self.name, self.expect_expr, f"Evaluation failed: {exc}") from None
 
         if not result:
-            self._fail(context, self.expect_expr, self.expect_msg)
+            self._fail(context, self.expect_expr, self.expect_msg, logger)
 
-    def _run_failure_conditions(self, context: Context) -> None:
+    def _run_failure_conditions(self, context: Context, logger: RunbookLogger) -> None:
         for check, message in self.failure_conditions:
-            logging.info("Checking failure condition: %s", check.name)
+            logger.check_started("fail_when", check.name)
             if self._check_matches(check, context):
-                self._fail(context, check.name, message)
+                self._fail(context, check.name, message, logger)
 
-    def _run_requirements(self, context: Context) -> None:
+    def _run_requirements(self, context: Context, logger: RunbookLogger) -> None:
         for check, message in self.requirements:
-            logging.info("Checking: %s", check.name)
+            logger.check_started("require", check.name)
             if not self._check_matches(check, context):
-                self._fail(context, check.name, message)
+                self._fail(context, check.name, message, logger)
 
-    def _run_warning_conditions(self, context: Context) -> List[str]:
+    def _run_warning_conditions(self, context: Context, logger: RunbookLogger) -> List[str]:
         warnings: List[str] = []
         for check, message in self.warning_conditions:
-            logging.info("Checking warning condition: %s", check.name)
+            logger.check_started("warn_when", check.name)
             if self._check_matches(check, context):
                 rendered_msg = self._render_message(message, context)
-                logging.warning("Step warning: %s", rendered_msg)
+                logger.step_warning(self.name, rendered_msg)
                 warnings.append(rendered_msg)
         return warnings
 
@@ -163,15 +172,16 @@ class Step:
         except Exception as exc:
             raise RunbookFailedError(self.name, check.name, f"Check failed with error: {exc}") from None
 
-    def _fail(self, context: Context, condition: str, message: str) -> None:
+    def _fail(self, context: Context, condition: str, message: str, logger: RunbookLogger) -> None:
         context["step_name"] = self.name
         rendered_msg = self._render_message(message, context)
+        logger.step_failed(self.name, condition)
 
         for notify_fn in self.on_expect_failure:
             try:
                 notify_fn(context)
             except Exception as exc:
-                logging.error("[notify_on_failure] Failed to run notifier: %s", exc)
+                logger.handler_failed("notify_on_failure", exc)
 
         raise RunbookFailedError(self.name, condition, rendered_msg)
 
@@ -227,17 +237,18 @@ class Runbook:
         expander_key = self.expander_key
 
         def run_expander(context: Context) -> None:
+            logger = get_runbook_logger()
             items = context.get(expander_key, [])
             if not items:
-                logging.info("[expand] No items for %s, skipping.", expander_key)
+                logger.expand_empty(expander_key)
                 return
 
-            logging.info("[expand] Iterating over %s items from key=%s", len(items), expander_key)
+            logger.expand_started(expander_key, len(items))
             for item in items:
                 sub_context = context.copy()
                 sub_context["item"] = item
                 for step in steps_to_run:
-                    step.run(sub_context)
+                    step.run(sub_context, logger=logger)
 
         wrapper_step = Step(f"Expand[{expander_key}]").then(run_expander)
         self.steps.append(wrapper_step)
@@ -249,17 +260,18 @@ class Runbook:
 
     def execute(self, context: Context) -> RunbookResult:
         executed_steps: List[StepResult] = []
-        logging.info("Starting Runbook%s", f": {self.name}" if self.name else "")
+        logger = get_runbook_logger()
+        logger.runbook_started(self.name, len(self.steps))
 
         try:
-            for step in self.steps:
-                executed_steps.append(step.run(context))
-            logging.info("Runbook completed successfully")
+            for index, step in enumerate(self.steps, start=1):
+                executed_steps.append(step.run(context, logger=logger, index=index, total=len(self.steps)))
+            logger.runbook_passed(self.name, len(executed_steps))
             return RunbookResult.success(self.name, context, executed_steps)
         except RunbookFailedError as exc:
-            logging.error(str(exc))
+            logger.runbook_failed(self.name, exc.step_name, exc.condition)
             executed_steps.append(StepResult(name=exc.step_name, status="failed"))
-            self._run_failure_handler(context)
+            self._run_failure_handler(context, logger)
             return RunbookResult.failure(self.name, context, executed_steps, exc)
 
     def run(self, context: Context) -> None:
@@ -267,10 +279,10 @@ class Runbook:
         if result.failed and result.error:
             raise result.error from None
 
-    def _run_failure_handler(self, context: Context) -> None:
+    def _run_failure_handler(self, context: Context, logger: RunbookLogger) -> None:
         if not self.on_failure:
             return
         try:
             self.on_failure(context)
         except Exception as exc:
-            logging.error("[runbook notify_on_failure] Failed to run handler: %s", exc)
+            logger.handler_failed("runbook notify_on_failure", exc)

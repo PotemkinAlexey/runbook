@@ -40,6 +40,22 @@ runbook list checks.py
 runbook run checks.py --context '{"items": [1, 2, 3]}'
 ```
 
+`runbook run` prints step lifecycle logs by default:
+
+```text
+runbook | start: local (1 steps)
+runbook | step 1/1 start: Check input
+runbook | check require: not_empty(items)
+runbook | step pass: Check input
+runbook | pass: local (1 steps)
+```
+
+Disable lifecycle logs with:
+
+```bash
+runbook run checks.py --quiet --context '{"items": [1, 2, 3]}'
+```
+
 Exit codes:
 
 - `0`: passed

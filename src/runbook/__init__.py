@@ -21,6 +21,7 @@ from .checks import (
 )
 from .core import Runbook, Step, step
 from .exceptions import RunbookFailedError, StepExecutionError
+from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .evaluation import safe_eval
 from .notifications import email_notify
 from .reporting import format_failure
@@ -30,6 +31,7 @@ from .types import Action, Context, ContextModifier, Loader
 __all__ = [
     "Runbook",
     "RunbookFailedError",
+    "RunbookLogger",
     "RunbookResult",
     "Step",
     "StepExecutionError",
@@ -44,11 +46,13 @@ __all__ = [
     "contains",
     "custom",
     "email_notify",
+    "configure_runbook_logging",
     "empty",
     "equals",
     "exists",
     "external",
     "format_failure",
+    "get_runbook_logger",
     "gt",
     "gte",
     "if_",

@@ -1,3 +1,5 @@
+import contextlib
+import io
 import tempfile
 import textwrap
 import unittest
@@ -30,7 +32,7 @@ class RunbookCliTest(unittest.TestCase):
             """
         )
 
-        exit_code = main(["run", str(path), "--context", '{"items": [1]}'])
+        exit_code = self._run_cli(["run", str(path), "--quiet", "--context", '{"items": [1]}'])
 
         self.assertEqual(exit_code, 0)
 
@@ -43,7 +45,7 @@ class RunbookCliTest(unittest.TestCase):
             """
         )
 
-        exit_code = main(["run", str(path), "--context", "{}"])
+        exit_code = self._run_cli(["run", str(path), "--quiet", "--context", "{}"])
 
         self.assertEqual(exit_code, 1)
 
@@ -53,6 +55,10 @@ class RunbookCliTest(unittest.TestCase):
         path = Path(tmpdir.name) / "checks.py"
         path.write_text(textwrap.dedent(source), encoding="utf-8")
         return path
+
+    def _run_cli(self, args):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return main(args)
 
 
 if __name__ == "__main__":

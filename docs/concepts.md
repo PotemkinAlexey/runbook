@@ -83,3 +83,24 @@ step("Report").then(log("Done"))
 ```
 
 Actions receive the context and can perform side effects.
+
+## Execution Logging
+
+Runbook emits lifecycle logs through the `runbook` logger:
+
+```python
+from runbook import configure_runbook_logging
+
+configure_runbook_logging()
+runbook.run({})
+```
+
+Example output:
+
+```text
+runbook | start: Daily checks (1 steps)
+runbook | step 1/1 start: Check files
+runbook | check require: not_empty(files)
+runbook | step pass: Check files
+runbook | pass: Daily checks (1 steps)
+```
