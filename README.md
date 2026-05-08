@@ -1,78 +1,55 @@
 # runbook
 
-Small Python library for describing Airflow-oriented operational runbooks.
+Embeddable Python toolkit for describing operational checks, data loading, and failure handling without hand-written control flow.
 
-## Install locally
+`runbook` is not a scheduler and not an Airflow replacement. It is a small execution layer that you can embed into a CLI command, API endpoint, cron job, Airflow task, test suite, or any other Python process.
+
+## Install
 
 ```bash
 pip install -e .
 ```
 
-## Basic usage
+## Quick Example
 
 ```python
-from runbook import Runbook, log, matches_any, not_empty, step
+from runbook import Runbook, format_failure, log, matches_any, not_empty, step
 
-runbook = (
-    Runbook("Daily checks")
+checks = (
+    Runbook("Daily input checks")
     .add(
         step("Check files")
         .set("files", ["daily.csv"])
-        .skip_when(not_empty("maintenance_window"), "Maintenance window is active")
         .require(not_empty("files"), "No files found")
         .require(matches_any("files", "*.csv"), "CSV file is missing")
         .then(log("Found {{ files|length }} files"))
     )
 )
 
-runbook.run({})
-```
-
-Use `execute()` when embedding runbooks into systems that should receive a
-structured result instead of an exception:
-
-```python
-result = runbook.execute({})
-
-if result.failed:
-    print(result.error)
-```
-
-For readable diagnostics with redacted secrets:
-
-```python
-from runbook import format_failure
+result = checks.execute({})
 
 if result.failed:
     print(format_failure(result.error, result.context, result.name))
 ```
 
-The core package only depends on Jinja2 and can run in any Python process.
-External systems are optional integrations.
-
-## Airflow integration
+Use `run()` when failures should raise immediately:
 
 ```python
-from runbook import Runbook, not_empty, step
-from runbook.integrations.airflow import run_task, s3_keys, slack_notify
+checks.run({})
+```
 
-checks = (
-    Runbook("Daily S3 checks")
-    .notify_on_failure(slack_notify("slack_default", "#alerts", "Runbook failed", "{{ step_name }} failed"))
-    .add(
-        step("Check input files")
-        .load("files", s3_keys("aws_default", "bucket", "daily/{{ ds }}/"))
-        .require(not_empty("files"), "No input files found")
-    )
-)
+Use `execute()` when embedding into another system and you need a structured result:
 
-def airflow_callable(**context):
-    run_task(checks, context)
+```python
+result = checks.execute({})
+
+if result.failed:
+    ...
 ```
 
 ## CLI
 
-Create a Python file that exposes `runbook`, `checks`, or `build_runbook()`:
+Create `checks.py`:
 
 ```python
 from runbook import Runbook, not_empty, step
@@ -89,6 +66,27 @@ runbook validate checks.py
 runbook list checks.py
 runbook run checks.py --context '{"items": [1, 2, 3]}'
 ```
+
+## Documentation
+
+- [Quickstart](docs/quickstart.md)
+- [Core Concepts](docs/concepts.md)
+- [Checks](docs/checks.md)
+- [Execution Results](docs/results.md)
+- [CLI](docs/cli.md)
+- [Integrations](docs/integrations.md)
+- [Recipes](docs/recipes.md)
+- [Extending runbook](docs/extending.md)
+
+## Current Status
+
+This is an early library API. The core direction is stable:
+
+- portable core with no Airflow dependency
+- declarative checks instead of manual `if/else`
+- adapters for external systems
+- CLI support
+- structured results for embedding
 
 ## License
 
