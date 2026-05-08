@@ -10,6 +10,7 @@ from jinja2 import Template
 from .checks import Check
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
+from .result import RunbookResult, StepResult
 
 Context = Dict[str, Any]
 Action = Callable[[Context], Any]
@@ -194,16 +195,26 @@ class Runbook:
         self.in_expand_mode = False
         return self
 
-    def run(self, context: Context) -> None:
+    def execute(self, context: Context) -> RunbookResult:
+        executed_steps: List[StepResult] = []
+        logging.info("Starting Runbook%s", f": {self.name}" if self.name else "")
+
         try:
-            logging.info("Starting Runbook%s", f": {self.name}" if self.name else "")
             for step in self.steps:
                 step.run(context)
+                executed_steps.append(StepResult(name=step.name))
             logging.info("Runbook completed successfully")
+            return RunbookResult.success(self.name, context, executed_steps)
         except RunbookFailedError as exc:
             logging.error(str(exc))
+            executed_steps.append(StepResult(name=exc.step_name, status="failed"))
             self._run_failure_handler(context)
-            raise exc from None
+            return RunbookResult.failure(self.name, context, executed_steps, exc)
+
+    def run(self, context: Context) -> None:
+        result = self.execute(context)
+        if result.failed and result.error:
+            raise result.error from None
 
     def _run_failure_handler(self, context: Context) -> None:
         if not self.on_failure:

@@ -27,6 +27,16 @@ runbook = (
 runbook.run({})
 ```
 
+Use `execute()` when embedding runbooks into systems that should receive a
+structured result instead of an exception:
+
+```python
+result = runbook.execute({})
+
+if result.failed:
+    print(result.error)
+```
+
 The core package only depends on Jinja2 and can run in any Python process.
 External systems are optional integrations.
 

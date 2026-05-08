@@ -23,12 +23,15 @@ from .core import Runbook, Step, step
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 from .notifications import email_notify
+from .result import RunbookResult, StepResult
 
 __all__ = [
     "Runbook",
     "RunbookFailedError",
+    "RunbookResult",
     "Step",
     "StepExecutionError",
+    "StepResult",
     "Check",
     "all_of",
     "any_of",

@@ -34,6 +34,22 @@ class RunbookCoreTest(unittest.TestCase):
         with self.assertRaises(RunbookFailedError):
             runbook.run({"ready": False})
 
+    def test_runbook_execute_returns_success_result(self):
+        result = Runbook("ok").add(step("load").with_data("ready", True).require(not_empty("ready"))).execute({})
+
+        self.assertTrue(result.passed)
+        self.assertFalse(result.failed)
+        self.assertEqual(result.name, "ok")
+        self.assertEqual([step_result.name for step_result in result.steps], ["load"])
+        self.assertIsNone(result.error)
+
+    def test_runbook_execute_returns_failure_result(self):
+        result = Runbook("bad").add(step("fail").require(not_empty("files"), "missing files")).execute({})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "not_empty(files)")
+        self.assertEqual(result.steps[-1].status, "failed")
+
     def test_if_else_runs_expected_action(self):
         context = {"ready": True}
 
