@@ -250,10 +250,12 @@ class Runbook:
     def add(self, step: Step) -> "Runbook":
         return self.add_step(step)
 
-    def expand(self, key: str) -> "Runbook":
+    def expand(self, key: str) -> "Expansion":
+        if self.in_expand_mode:
+            raise RuntimeError("nested expand() is not supported")
         self.expander_key = key
         self.in_expand_mode = True
-        return self
+        return Expansion(self)
 
     def end_expand(self) -> "Runbook":
         if not self.in_expand_mode:
@@ -283,6 +285,11 @@ class Runbook:
         self.expander_steps = []
         self.in_expand_mode = False
         return self
+
+    def _discard_expand(self) -> None:
+        self.expander_key = None
+        self.expander_steps = []
+        self.in_expand_mode = False
 
     def execute(self, context: Context) -> RunbookResult:
         started_at = monotonic()
@@ -315,6 +322,33 @@ class Runbook:
             self.on_failure(context)
         except Exception as exc:
             logger.handler_failed("runbook notify_on_failure", exc)
+
+
+class Expansion:
+    """Context manager for defining expanded steps."""
+
+    def __init__(self, runbook: Runbook):
+        self.runbook = runbook
+
+    def __enter__(self) -> "Expansion":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        if exc_type is not None:
+            self.runbook._discard_expand()
+            return False
+        self.runbook.end_expand()
+        return False
+
+    def add_step(self, step: Step) -> "Expansion":
+        self.runbook.add_step(step)
+        return self
+
+    def add(self, step: Step) -> "Expansion":
+        return self.add_step(step)
+
+    def end_expand(self) -> Runbook:
+        return self.runbook.end_expand()
 
 
 def _elapsed(started_at: float) -> float:

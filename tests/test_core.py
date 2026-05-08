@@ -122,6 +122,33 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertIsInstance(data["summary"]["duration_seconds"], float)
         self.assertIsInstance(data["steps"][0]["duration_seconds"], float)
 
+    def test_runbook_expand_context_manager_runs_steps_for_each_item(self):
+        runbook = Runbook("expand").add(step("load").set("items", [1, 2]))
+        with runbook.expand("items") as each:
+            each.add(step("check item").require(gt("item", 0)))
+
+        result = runbook.execute({})
+
+        self.assertTrue(result.passed)
+        self.assertEqual([step_result.name for step_result in result.steps], ["load", "Expand[items]"])
+
+    def test_runbook_expand_context_manager_resets_on_exception(self):
+        runbook = Runbook("expand")
+
+        with self.assertRaises(RuntimeError):
+            with runbook.expand("items"):
+                raise RuntimeError("boom")
+
+        runbook.add(step("after"))
+
+        self.assertEqual([item.name for item in runbook.steps], ["after"])
+
+    def test_runbook_expand_keeps_chaining_compatibility(self):
+        runbook = Runbook("expand").add(step("load").set("items", [1]))
+        runbook.expand("items").add(step("check item").require(gt("item", 0))).end_expand()
+
+        self.assertTrue(runbook.execute({}).passed)
+
     def test_if_else_runs_expected_action(self):
         context = {"ready": True}
 

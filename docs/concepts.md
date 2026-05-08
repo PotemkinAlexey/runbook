@@ -98,6 +98,19 @@ step("Report").then(log("Done"))
 
 Actions receive the context and can perform side effects.
 
+## Expand
+
+Use `expand()` when the same sub-steps should run for each item in a context list.
+
+```python
+runbook = Runbook("items").add(step("Load").set("items", [1, 2, 3]))
+
+with runbook.expand("items") as each:
+    each.add(step("Check item").require(gt("item", 0)))
+```
+
+The context manager form resets expansion state if an exception happens while defining expanded steps.
+
 ## Execution Logging
 
 Runbook emits lifecycle logs through the `runbook` logger:
