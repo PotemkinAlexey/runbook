@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import tempfile
 import textwrap
 import unittest
@@ -48,6 +49,24 @@ class RunbookCliTest(unittest.TestCase):
         exit_code = self._run_cli(["run", str(path), "--quiet", "--context", "{}"])
 
         self.assertEqual(exit_code, 1)
+
+    def test_main_run_can_print_json_result(self):
+        path = self._write_runbook(
+            """
+            from runbook import Runbook, not_empty, step
+
+            runbook = Runbook("cli").add(step("one").require(not_empty("items")))
+            """
+        )
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+            exit_code = main(["run", str(path), "--quiet", "--json", "--context", '{"items": [1]}'])
+
+        data = json.loads(stdout.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(data["name"], "cli")
+        self.assertEqual(data["status"], "passed")
 
     def _write_runbook(self, source):
         tmpdir = tempfile.TemporaryDirectory()

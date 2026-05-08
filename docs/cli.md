@@ -56,6 +56,20 @@ Disable lifecycle logs with:
 runbook run checks.py --quiet --context '{"items": [1, 2, 3]}'
 ```
 
+## JSON Output
+
+Use JSON output when integrating with CI/CD, cron wrappers, or another program:
+
+```bash
+runbook run checks.py --quiet --json --context '{"items": [1, 2, 3]}'
+```
+
+Include the final context when needed:
+
+```bash
+runbook run checks.py --quiet --json --include-context --context '{"items": [1, 2, 3]}'
+```
+
 Exit codes:
 
 - `0`: passed

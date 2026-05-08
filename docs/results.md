@@ -28,6 +28,21 @@ Important fields:
 - `steps`: list of executed `StepResult` objects
 - `error`: `RunbookFailedError` when failed
 
+## Serialization
+
+Results can be serialized for APIs, CLI output, and automation systems.
+
+```python
+data = result.to_dict()
+payload = result.to_json()
+```
+
+Include the final context explicitly:
+
+```python
+payload = result.to_json(include_context=True)
+```
+
 ## Strict Execution
 
 Use `run()` when failure should raise.

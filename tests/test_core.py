@@ -84,6 +84,15 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(result.error.condition, "not_empty(files)")
         self.assertEqual(result.steps[-1].status, "failed")
 
+    def test_runbook_result_serializes_to_dict(self):
+        result = Runbook("ok").add(step("load").set("items", [1]).require(not_empty("items"))).execute({})
+
+        data = result.to_dict(include_context=True)
+
+        self.assertEqual(data["status"], "passed")
+        self.assertEqual(data["summary"]["passed"], 1)
+        self.assertEqual(data["context"]["items"], [1])
+
     def test_if_else_runs_expected_action(self):
         context = {"ready": True}
 

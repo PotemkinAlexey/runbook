@@ -21,6 +21,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     run_parser = subparsers.add_parser("run", help="Run a runbook file")
     run_parser.add_argument("file", help="Python file that defines a runbook")
     run_parser.add_argument("--context", default="{}", help="JSON object used as the initial context")
+    run_parser.add_argument("--include-context", action="store_true", help="Include final context in JSON output")
+    run_parser.add_argument("--json", action="store_true", help="Print structured JSON result")
     run_parser.add_argument("--quiet", action="store_true", help="Disable runbook execution logs")
 
     validate_parser = subparsers.add_parser("validate", help="Validate that a runbook file can be loaded")
@@ -48,6 +50,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not args.quiet:
             configure_runbook_logging()
         result = runbook.execute(context)
+        if args.json:
+            print(result.to_json(include_context=args.include_context, indent=2))
+            return 0 if result.passed else 1
         if result.passed:
             print("passed")
             return 0
