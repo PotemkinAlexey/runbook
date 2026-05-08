@@ -7,9 +7,9 @@ from typing import Any, Callable, List, Optional
 from jinja2 import Template
 
 from .checks import Check
-from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
+from .exceptions import RunbookFailedError, StepExecutionError
 from .result import RunbookResult, StepResult
 from .types import Action, Context, ContextModifier, Loader
 

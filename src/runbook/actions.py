@@ -7,8 +7,8 @@ from typing import Any, Callable, Optional, Union
 
 from jinja2 import Template
 
-from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
+from .exceptions import RunbookFailedError, StepExecutionError
 from .types import Action, Context
 
 

@@ -20,9 +20,9 @@ from .checks import (
     not_empty,
 )
 from .core import Runbook, Step, step
-from .exceptions import RunbookFailedError, StepExecutionError
-from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .evaluation import safe_eval
+from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
+from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
 from .reporting import format_failure
 from .result import RunbookResult, StepResult

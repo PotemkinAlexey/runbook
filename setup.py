@@ -1,6 +1,5 @@
 from setuptools import find_packages, setup
 
-
 setup(
     name="runbook",
     version="0.1.0",
@@ -15,6 +14,7 @@ setup(
         "jinja2>=3.0",
     ],
     extras_require={
+        "dev": ["ruff>=0.5.0"],
         "airflow": ["apache-airflow>=2.0"],
         "aws": ["apache-airflow-providers-amazon"],
         "azure": ["apache-airflow-providers-microsoft-azure"],

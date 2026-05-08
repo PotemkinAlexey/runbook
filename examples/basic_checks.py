@@ -1,6 +1,5 @@
 from runbook import Runbook, log, matches_any, not_empty, step
 
-
 runbook = (
     Runbook("basic checks")
     .add(
