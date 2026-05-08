@@ -54,6 +54,16 @@ runbook.run({})
 
 This is convenient in scripts, tests, schedulers, and systems where an exception should mark the task as failed.
 
+## Parallel Execution
+
+Use `execute_parallel()` for independent top-level steps:
+
+```python
+result = runbook.execute_parallel(context, max_workers=4)
+```
+
+Each step receives a copy of the initial context. Successful step contexts are merged back in step order. If steps depend on previous step output, use `execute()`.
+
 ## Step Results
 
 Each step returns a `StepResult`.

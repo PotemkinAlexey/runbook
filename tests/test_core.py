@@ -149,6 +149,30 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertTrue(runbook.execute({}).passed)
 
+    def test_runbook_execute_parallel_runs_independent_steps(self):
+        result = (
+            Runbook("parallel")
+            .add(step("one").set("one", 1))
+            .add(step("two").set("two", 2))
+            .execute_parallel({}, max_workers=2)
+        )
+
+        self.assertTrue(result.passed)
+        self.assertEqual(result.context["one"], 1)
+        self.assertEqual(result.context["two"], 2)
+        self.assertEqual([step_result.name for step_result in result.steps], ["one", "two"])
+
+    def test_runbook_execute_parallel_returns_failure_result(self):
+        result = (
+            Runbook("parallel")
+            .add(step("one").set("one", 1))
+            .add(step("bad").require(not_empty("items"), "missing"))
+            .execute_parallel({}, max_workers=2)
+        )
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "not_empty(items)")
+
     def test_if_else_runs_expected_action(self):
         context = {"ready": True}
 

@@ -133,3 +133,13 @@ runbook | check require: not_empty(files)
 runbook | step pass: Check files
 runbook | pass: Daily checks (1 steps)
 ```
+
+## Parallel Execution
+
+Use `execute_parallel()` for independent top-level steps that mostly perform I/O.
+
+```python
+result = runbook.execute_parallel({}, max_workers=4)
+```
+
+Parallel execution runs each top-level step with a copy of the initial context, then merges successful step contexts back in step order. Use regular `execute()` when steps depend on data produced by previous steps.

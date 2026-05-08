@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import signal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from time import monotonic, sleep
 from typing import Any, List, Optional
@@ -309,6 +310,48 @@ class Runbook:
             self._run_failure_handler(context, logger)
             return RunbookResult.failure(self.name, context, executed_steps, exc, duration_seconds=_elapsed(started_at))
 
+    def execute_parallel(self, context: Context, max_workers: Optional[int] = None) -> RunbookResult:
+        started_at = monotonic()
+        logger = get_runbook_logger()
+        logger.runbook_started(self.name, len(self.steps))
+        results_by_index: dict[int, StepResult] = {}
+        contexts_by_index: dict[int, Context] = {}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_run_step_in_context_copy, step, context, index, len(self.steps), logger): index
+                for index, step in enumerate(self.steps, start=1)
+            }
+
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    step_result, step_context = future.result()
+                except RunbookFailedError as exc:
+                    logger.runbook_failed(self.name, exc.step_name, exc.condition)
+                    failed_steps = _ordered_step_results(results_by_index)
+                    failed_steps.append(
+                        StepResult(name=exc.step_name, status="failed", duration_seconds=_elapsed(started_at))
+                    )
+                    self._run_failure_handler(context, logger)
+                    return RunbookResult.failure(
+                        self.name,
+                        context,
+                        failed_steps,
+                        exc,
+                        duration_seconds=_elapsed(started_at),
+                    )
+
+                results_by_index[index] = step_result
+                contexts_by_index[index] = step_context
+
+        for index in sorted(contexts_by_index):
+            context.update(contexts_by_index[index])
+
+        executed_steps = _ordered_step_results(results_by_index)
+        logger.runbook_passed(self.name, len(executed_steps))
+        return RunbookResult.success(self.name, context, executed_steps, duration_seconds=_elapsed(started_at))
+
     def run(self, context: Context) -> None:
         result = self.execute(context)
         if result.failed and result.error:
@@ -352,6 +395,21 @@ class Expansion:
 
 def _elapsed(started_at: float) -> float:
     return round(monotonic() - started_at, 6)
+
+
+def _run_step_in_context_copy(
+    step: Step,
+    context: Context,
+    index: int,
+    total: int,
+    logger: RunbookLogger,
+) -> tuple[StepResult, Context]:
+    step_context = context.copy()
+    return step.run(step_context, logger=logger, index=index, total=total), step_context
+
+
+def _ordered_step_results(results_by_index: dict[int, StepResult]) -> List[StepResult]:
+    return [results_by_index[index] for index in sorted(results_by_index)]
 
 
 @contextmanager
