@@ -2,6 +2,22 @@
 
 The core package is portable. Integrations live outside the core API.
 
+## Files
+
+Local filesystem helpers are available from `runbook.integrations.files`.
+
+```python
+from runbook import Runbook, not_empty, step
+from runbook.integrations.files import glob_paths, read_json
+
+checks = Runbook("files").add(
+    step("Read input")
+    .load("files", glob_paths("/data/*.json"))
+    .require(not_empty("files"), "No JSON files found")
+    .load("config", read_json("config.json"))
+)
+```
+
 ## Airflow
 
 Airflow helpers are available from `runbook.integrations.airflow`.

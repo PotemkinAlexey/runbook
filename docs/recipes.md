@@ -62,6 +62,20 @@ runbook = Runbook("users").add(
 )
 ```
 
+## Check Local Files
+
+```python
+from runbook import Runbook, matches_any, not_empty, step
+from runbook.integrations.files import glob_paths
+
+runbook = Runbook("local files").add(
+    step("Find CSV files")
+    .load("files", glob_paths("/data/*.csv"))
+    .require(not_empty("files"), "No files found")
+    .require(matches_any("files", "*.csv"), "CSV file is missing")
+)
+```
+
 ## Use a Custom Check
 
 ```python
