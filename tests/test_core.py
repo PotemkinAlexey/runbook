@@ -1,7 +1,8 @@
 import unittest
 from time import sleep
 
-from runbook import Runbook, RunbookFailedError, Step, empty, gt, if_else, matches_any, not_empty, step
+from runbook import Runbook, RunbookFailedError, Step, empty, gt, if_else, matches_any, not_empty, safe_eval, step
+from runbook.exceptions import StepExecutionError
 
 
 class RunbookCoreTest(unittest.TestCase):
@@ -132,6 +133,22 @@ class RunbookCoreTest(unittest.TestCase):
         action(context)
 
         self.assertEqual(context["result"], "then")
+
+    def test_safe_eval_supports_common_safe_expressions(self):
+        result = safe_eval("len(files) == 2 and response.status == 200", {
+            "files": ["a", "b"],
+            "response": {"status": 200},
+        })
+
+        self.assertTrue(result)
+
+    def test_safe_eval_blocks_private_attribute_access(self):
+        with self.assertRaises(StepExecutionError):
+            safe_eval("value.__class__", {"value": "x"})
+
+    def test_safe_eval_blocks_arbitrary_function_calls(self):
+        with self.assertRaises(StepExecutionError):
+            safe_eval("fn()", {"fn": lambda: True})
 
 
 if __name__ == "__main__":
