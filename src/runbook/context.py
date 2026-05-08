@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
 from urllib import parse
 
-Context = Dict[str, Any]
+from .types import Context
 
 
 def enrich_airflow_context(context: Context) -> Context:

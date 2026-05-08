@@ -11,8 +11,7 @@ from typing import Any, Dict, List, Optional
 from jinja2 import Template
 
 from .context import enrich_airflow_context
-
-Context = Dict[str, Any]
+from .types import Context
 
 
 def slack_notify(

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from typing import Any, Callable, Dict, Iterable
+from typing import Any, Callable, Iterable
 
-Context = Dict[str, Any]
+from .types import Context
 
 
 @dataclass(frozen=True)

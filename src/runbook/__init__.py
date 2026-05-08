@@ -24,6 +24,7 @@ from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 from .notifications import email_notify
 from .result import RunbookResult, StepResult
+from .types import Action, Context, ContextModifier, Loader
 
 __all__ = [
     "Runbook",
@@ -33,6 +34,10 @@ __all__ = [
     "StepExecutionError",
     "StepResult",
     "Check",
+    "Action",
+    "Context",
+    "ContextModifier",
+    "Loader",
     "all_of",
     "any_of",
     "contains",

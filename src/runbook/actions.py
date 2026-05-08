@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from jinja2 import Template
 
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
-
-Context = Dict[str, Any]
-Action = Callable[[Context], Any]
+from .types import Action, Context
 
 
 def raise_(msg: str) -> Action:

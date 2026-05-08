@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 from jinja2 import Template
 
@@ -11,10 +11,7 @@ from .checks import Check
 from .exceptions import RunbookFailedError, StepExecutionError
 from .evaluation import safe_eval
 from .result import RunbookResult, StepResult
-
-Context = Dict[str, Any]
-Action = Callable[[Context], Any]
-ContextModifier = Callable[[Context], Any]
+from .types import Action, Context, ContextModifier, Loader
 
 
 class Step:
@@ -42,7 +39,7 @@ class Step:
         self.context_modifiers.append(lambda context: context.update({key: value}))
         return self
 
-    def with_loader(self, loader_fn: Callable[[Context], Any], key: str) -> "Step":
+    def with_loader(self, loader_fn: Loader, key: str) -> "Step":
         self.context_modifiers.append(lambda context: context.update({key: loader_fn(context)}))
         return self
 

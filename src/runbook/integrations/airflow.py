@@ -7,15 +7,14 @@ inside Airflow tasks or DAG code.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from jinja2 import Template
 
 from runbook.context import enrich_airflow_context
 from runbook.exceptions import RunbookFailedError
 from runbook.notifications import email_notify_ses, slack_notify
-
-Context = Dict[str, Any]
+from runbook.types import Context
 
 __all__ = [
     "azure_blobs",
