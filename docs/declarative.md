@@ -103,6 +103,26 @@ Step fields:
 - `name`
 - `inputs`
 - `require`
+- `skip_when`
+- `warn_when`
+- `fail_when`
+- `retry`
+- `timeout`
+
+Stage fields:
+
+- `name`
+- `steps`
+- `stages`
+- `children`
+- `skip_when`
+- `warn_when`
+- `fail_when`
+- `retry`
+- `timeout`
+- `continue_on_error`
+- `fail_fast`
+- `scoped`
 
 Requirement fields:
 
@@ -110,6 +130,42 @@ Requirement fields:
 - `args`: positional arguments
 - any other field becomes a keyword argument
 - `message`: failure message
+
+## Controls
+
+Step and stage policies use the same check shape as `require`.
+
+```yaml
+name: Orders export
+stages:
+  - name: Validations
+    continue_on_error: true
+    warn_when:
+      - check: gt
+        args: [delay_minutes, 30]
+        message: Input is late
+    steps:
+      - name: Check files
+        inputs: [files]
+        retry:
+          times: 2
+          delay: 1
+        timeout: 30
+        skip_when:
+          - check: empty
+            args: [files]
+            message: No files to process
+        require:
+          - check: not_empty
+            args: [files]
+            message: No files found
+```
+
+`retry` can also be a number:
+
+```yaml
+retry: 3
+```
 
 ## Checks
 

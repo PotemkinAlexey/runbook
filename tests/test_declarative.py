@@ -118,6 +118,94 @@ class DeclarativeRunbookTest(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertEqual(result.children[0].children[0].name, "leaf")
 
+    def test_runbook_from_dict_supports_step_controls(self):
+        spec = {
+            "name": "controls",
+            "steps": [
+                {
+                    "name": "Skip empty",
+                    "skip_when": [{"check": "empty", "args": ["items"], "message": "No items"}],
+                },
+                {
+                    "name": "Warn high delay",
+                    "warn_when": [{"check": "gt", "args": ["delay", 10], "message": "Late"}],
+                },
+                {
+                    "name": "Fail on errors",
+                    "fail_when": [{"check": "gt", "args": ["errors", 0], "message": "Errors found"}],
+                },
+            ],
+        }
+
+        result = runbook_from_dict(spec).execute({"items": [], "delay": 20, "errors": 0})
+
+        self.assertTrue(result.passed)
+        self.assertTrue(result.find("Skip empty").skipped)
+        self.assertTrue(result.find("Warn high delay").warned)
+
+    def test_runbook_from_dict_supports_retry_and_timeout(self):
+        spec = {
+            "name": "controls",
+            "steps": [
+                {
+                    "name": "Check items",
+                    "retry": {"times": 2, "delay": 0},
+                    "timeout": 1,
+                    "require": [{"check": "not_empty", "args": ["items"]}],
+                }
+            ],
+        }
+
+        runbook = runbook_from_dict(spec)
+
+        self.assertEqual(runbook.steps[0].retry_attempts, 2)
+        self.assertEqual(runbook.steps[0].timeout_seconds, 1)
+        self.assertTrue(runbook.execute({"items": [1]}).passed)
+
+    def test_runbook_from_dict_supports_stage_controls(self):
+        spec = {
+            "name": "controls",
+            "stages": [
+                {
+                    "name": "Validation",
+                    "continue_on_error": True,
+                    "retry": 2,
+                    "timeout": 1,
+                    "warn_when": [{"check": "gt", "args": ["delay", 10], "message": "Late"}],
+                    "steps": [
+                        {
+                            "name": "Bad",
+                            "require": [{"check": "not_empty", "args": ["missing"], "message": "Missing"}],
+                        },
+                        {"name": "After"},
+                    ],
+                }
+            ],
+        }
+
+        result = runbook_from_dict(spec).execute({"delay": 20})
+        stage_result = result.children[0]
+
+        self.assertTrue(result.failed)
+        self.assertEqual([child.name for child in stage_result.children], ["Bad", "After"])
+        self.assertTrue(stage_result.warned)
+
+    def test_runbook_from_dict_supports_scoped_stage(self):
+        spec = {
+            "name": "scope",
+            "stages": [
+                {
+                    "name": "Scoped",
+                    "scoped": True,
+                    "steps": [{"name": "Set value"}],
+                }
+            ],
+        }
+
+        runbook = runbook_from_dict(spec)
+
+        self.assertTrue(runbook.steps[0].scoped_context_enabled)
+
     def test_runbook_from_dict_rejects_unknown_check(self):
         spec = {
             "name": "bad",

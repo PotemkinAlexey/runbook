@@ -93,6 +93,13 @@ def _node_from_dict(spec: dict[str, Any], registry: Registry) -> Any:
 
 def _stage_from_dict(spec: dict[str, Any], registry: Registry) -> Stage:
     item = stage(_required_name(spec, "stage"))
+    _apply_common_controls(item, spec, registry)
+    if spec.get("continue_on_error"):
+        item.continue_on_error()
+    if spec.get("fail_fast"):
+        item.fail_fast()
+    if spec.get("scoped"):
+        item.scoped()
     for child_spec in _child_specs(spec):
         item.add(_node_from_dict(child_spec, registry))
     return item
@@ -100,6 +107,7 @@ def _stage_from_dict(spec: dict[str, Any], registry: Registry) -> Stage:
 
 def _step_from_dict(spec: dict[str, Any], registry: Registry) -> Step:
     item = step(_required_name(spec, "step"))
+    _apply_common_controls(item, spec, registry)
     inputs = spec.get("inputs") or []
     if inputs:
         item.inputs(*_as_list(inputs, "inputs"))
@@ -109,9 +117,30 @@ def _step_from_dict(spec: dict[str, Any], registry: Registry) -> Step:
     return item
 
 
-def _check_from_spec(spec: Any, registry: Registry):
+def _apply_common_controls(item: Any, spec: dict[str, Any], registry: Registry) -> None:
+    if "retry" in spec:
+        retry_spec = spec["retry"]
+        if isinstance(retry_spec, int):
+            item.retry(times=retry_spec)
+        else:
+            _require_mapping(retry_spec, "retry")
+            item.retry(times=retry_spec.get("times", 1), delay=retry_spec.get("delay", 0.0))
+    if "timeout" in spec:
+        item.timeout(spec["timeout"])
+    for check_spec in _as_list(spec.get("skip_when") or [], "skip_when"):
+        check, message = _check_from_spec(check_spec, registry, default_message="Skipped")
+        item.skip_when(check, message)
+    for check_spec in _as_list(spec.get("warn_when") or [], "warn_when"):
+        check, message = _check_from_spec(check_spec, registry, default_message="Warning condition matched")
+        item.warn_when(check, message)
+    for check_spec in _as_list(spec.get("fail_when") or [], "fail_when"):
+        check, message = _check_from_spec(check_spec, registry, default_message="Failure condition matched")
+        item.fail_when(check, message)
+
+
+def _check_from_spec(spec: Any, registry: Registry, default_message: str = "Requirement failed"):
     if isinstance(spec, str):
-        return _build_check(spec, [], {}, registry), "Requirement failed"
+        return _build_check(spec, [], {}, registry), default_message
     _require_mapping(spec, "check spec")
     name = spec.get("check")
     if not name:
@@ -122,7 +151,7 @@ def _check_from_spec(spec: Any, registry: Registry):
         for key, value in spec.items()
         if key not in {"check", "args", "message"}
     }
-    message = spec.get("message", "Requirement failed")
+    message = spec.get("message", default_message)
     return _build_check(name, args, kwargs, registry), message
 
 
