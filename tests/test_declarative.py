@@ -162,6 +162,63 @@ class DeclarativeRunbookTest(unittest.TestCase):
         self.assertEqual(runbook.steps[0].timeout_seconds, 1)
         self.assertTrue(runbook.execute({"items": [1]}).passed)
 
+    def test_runbook_from_dict_supports_schema_validation(self):
+        spec = {
+            "name": "schema",
+            "steps": [
+                {
+                    "name": "Validate row",
+                    "validate_schema": [
+                        {
+                            "key": "row",
+                            "schema": {
+                                "type": "object",
+                                "required": ["id"],
+                                "properties": {"id": {"type": "integer"}},
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        self.assertTrue(runbook_from_dict(spec).execute({"row": {"id": 1}}).passed)
+
+    def test_runbook_from_dict_schema_validation_fails_clearly(self):
+        spec = {
+            "name": "schema",
+            "steps": [
+                {
+                    "name": "Validate row",
+                    "validate_schema": [
+                        {
+                            "key": "row",
+                            "schema": {"type": "object", "required": ["id"]},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        result = runbook_from_dict(spec).execute({"row": {}})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "schema(row)")
+
+    def test_runbook_from_dict_rejects_invalid_schema_validation_spec(self):
+        spec = {
+            "name": "schema",
+            "steps": [
+                {
+                    "name": "Validate row",
+                    "validate_schema": [{"key": "row"}],
+                }
+            ],
+        }
+
+        with self.assertRaises(ValueError):
+            runbook_from_dict(spec)
+
     def test_runbook_from_dict_supports_stage_controls(self):
         spec = {
             "name": "controls",

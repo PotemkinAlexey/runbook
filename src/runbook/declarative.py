@@ -114,6 +114,14 @@ def _step_from_dict(spec: dict[str, Any], registry: Registry) -> Step:
     for requirement in _as_list(spec.get("require") or [], "require"):
         check, message = _check_from_spec(requirement, registry)
         item.require(check, message)
+    for schema_spec in _as_list(spec.get("validate_schema") or [], "validate_schema"):
+        _require_mapping(schema_spec, "validate_schema")
+        key = schema_spec.get("key")
+        if not key:
+            raise ValueError("validate_schema spec must include `key`")
+        if "schema" not in schema_spec:
+            raise ValueError("validate_schema spec must include `schema`")
+        item.validate_schema(key, schema_spec["schema"])
     return item
 
 

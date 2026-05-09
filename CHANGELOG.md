@@ -5,6 +5,7 @@
 ### Added
 
 - Declarative runbook controls for step and stage policies.
+- Declarative schema validation for JSON/YAML runbooks.
 
 ## 0.1.0 - 2026-05-09
 

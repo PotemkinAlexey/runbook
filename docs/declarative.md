@@ -106,6 +106,7 @@ Step fields:
 - `skip_when`
 - `warn_when`
 - `fail_when`
+- `validate_schema`
 - `retry`
 - `timeout`
 
@@ -166,6 +167,26 @@ stages:
 ```yaml
 retry: 3
 ```
+
+## Schema Validation
+
+Declarative steps can validate structured values with the built-in JSON-schema-like subset:
+
+```yaml
+name: Schema checks
+steps:
+  - name: Validate row
+    validate_schema:
+      - key: row
+        schema:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+```
+
+For Pydantic models, use the Python DSL. Declarative files should stay portable and avoid Python import strings.
 
 ## Checks
 
