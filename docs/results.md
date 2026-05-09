@@ -57,6 +57,18 @@ result = runbook.execute(context)
 
 Exporters receive the final `RunbookResult`. Exporter errors are logged and do not change the runbook status.
 
+Use `AsyncResultExporter` when exporting should not block the runbook path:
+
+```python
+from runbook import AsyncResultExporter, JsonlResultExporter
+
+with AsyncResultExporter(JsonlResultExporter("runbook-results.jsonl")) as exporter:
+    runbook.export_to(exporter)
+    result = runbook.execute(context)
+```
+
+Call `flush()` or `close()` before process shutdown when you need to guarantee delivery.
+
 ## Strict Execution
 
 Use `run()` when failure should raise.

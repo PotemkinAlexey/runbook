@@ -98,7 +98,7 @@ from runbook import format_failure
 ## Observability
 
 ```python
-from runbook import JsonlResultExporter, ResultExporter
+from runbook import AsyncResultExporter, JsonlResultExporter, ResultExporter
 ```
 
 Use `Runbook.export_to(...)` to attach result exporters for local files, telemetry bridges, or application-specific sinks.

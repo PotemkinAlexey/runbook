@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from runbook import JsonlResultExporter, Runbook, not_empty, step
+from runbook import AsyncResultExporter, JsonlResultExporter, Runbook, not_empty, step
 
 
 class ObservabilityTest(unittest.TestCase):
@@ -48,6 +48,36 @@ class ObservabilityTest(unittest.TestCase):
         payload = json.loads(lines[0])
         self.assertEqual(payload["name"], "observed")
         self.assertEqual(payload["status"], result.status)
+
+    def test_async_result_exporter_flushes_background_results(self):
+        exported = []
+        exporter = AsyncResultExporter(exported.append)
+
+        result = Runbook("observed").export_to(exporter).add(step("ok")).execute({})
+        exporter.flush()
+        exporter.close()
+
+        self.assertEqual(exported, [result])
+
+    def test_async_result_exporter_context_manager_closes(self):
+        exported = []
+
+        with AsyncResultExporter(exported.append) as exporter:
+            result = Runbook("observed").export_to(exporter).add(step("ok")).execute({})
+
+        self.assertEqual(exported, [result])
+
+    def test_async_result_exporter_captures_background_errors(self):
+        def broken_exporter(result):
+            raise RuntimeError("export failed")
+
+        exporter = AsyncResultExporter(broken_exporter)
+        Runbook("observed").export_to(exporter).add(step("ok")).execute({})
+        exporter.flush()
+        exporter.close()
+
+        self.assertEqual(len(exporter.errors), 1)
+        self.assertEqual(str(exporter.errors[0]), "export failed")
 
 
 if __name__ == "__main__":

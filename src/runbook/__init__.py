@@ -40,7 +40,7 @@ from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
-from .observability import JsonlResultExporter, ResultExporter
+from .observability import AsyncResultExporter, JsonlResultExporter, ResultExporter
 from .registry import (
     Registry,
     get_registered_action,
@@ -71,6 +71,7 @@ __all__ = [
     "Action",
     "Context",
     "ContextModifier",
+    "AsyncResultExporter",
     "JsonlResultExporter",
     "Loader",
     "LazyValue",
