@@ -34,6 +34,16 @@ This loads the file and verifies that it exposes a `Runbook`.
 runbook list checks.py
 ```
 
+Nested stages are printed as a tree:
+
+```text
+Orders export
+  - Pre-checks/
+    - Check files
+    - Check schema
+  - Run export
+```
+
 ## Run
 
 ```bash
@@ -48,6 +58,16 @@ runbook | step 1/1 start: Check input
 runbook | check require: not_empty(items)
 runbook | step pass: Check input
 runbook | pass: local (1 steps)
+```
+
+It also prints a nested result tree:
+
+```text
+PASS Orders export
+  PASS Pre-checks/
+    PASS Check files
+    PASS Check schema
+  PASS Run export
 ```
 
 Disable lifecycle logs with:

@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from .core import Runbook
 from .events import configure_runbook_logging
-from .reporting import format_failure
+from .reporting import format_failure, format_result_tree, format_runbook_tree
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -41,8 +41,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     runbook = load_runbook_from_file(args.file)
 
     if args.command == "list":
-        for step in runbook.steps:
-            print(step.name)
+        print(format_runbook_tree(runbook))
         return 0
 
     if args.command == "run":
@@ -53,8 +52,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.json:
             print(result.to_json(include_context=args.include_context, indent=2))
             return 0 if result.passed else 1
+        print(format_result_tree(result))
         if result.passed:
-            print("passed")
             return 0
         print(format_failure(result.error, result.context, result.name), file=sys.stderr)
         return 1

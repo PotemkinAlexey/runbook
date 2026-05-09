@@ -24,7 +24,7 @@ from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
-from .reporting import format_failure
+from .reporting import format_failure, format_result_tree, format_runbook_tree
 from .result import RunbookResult, StageResult, StepResult
 from .types import Action, Context, ContextModifier, Loader
 
@@ -54,6 +54,8 @@ __all__ = [
     "exists",
     "external",
     "format_failure",
+    "format_result_tree",
+    "format_runbook_tree",
     "get_runbook_logger",
     "gt",
     "gte",

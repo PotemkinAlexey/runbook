@@ -68,6 +68,24 @@ class RunbookCliTest(unittest.TestCase):
         self.assertEqual(data["name"], "cli")
         self.assertEqual(data["status"], "passed")
 
+    def test_main_list_prints_tree(self):
+        path = self._write_runbook(
+            """
+            from runbook import Runbook, stage, step
+
+            runbook = Runbook("cli").add(stage("group").add(step("one")))
+            """
+        )
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+            exit_code = main(["list", str(path)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("cli", stdout.getvalue())
+        self.assertIn("  - group/", stdout.getvalue())
+        self.assertIn("    - one", stdout.getvalue())
+
     def _write_runbook(self, source):
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)
