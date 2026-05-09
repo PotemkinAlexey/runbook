@@ -54,6 +54,7 @@ The result is a structured execution tree that can be printed, serialized, expor
 3. Read [Pipeline Guide](pipelines.md) for the recommended production shape.
 4. Use [Examples Cookbook](examples.md) when adapting a concrete scenario.
 5. Read [Project Philosophy](philosophy.md) before adding orchestration-like behavior.
-6. Keep [Advanced Usage](advanced.md) for later.
+6. Use [Troubleshooting And FAQ](troubleshooting.md) when integration behavior is surprising.
+7. Keep [Advanced Usage](advanced.md) for later.
 
 Most users only need `Runbook`, `stage`, `step`, `inputs`, `publish`, and `require`.

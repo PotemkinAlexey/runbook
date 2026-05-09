@@ -14,6 +14,7 @@ nav:
   - Declarative Runbooks: declarative.md
   - Embedding Guide: embedding.md
   - Project Philosophy: philosophy.md
+  - Troubleshooting And FAQ: troubleshooting.md
   - Core Concepts: concepts.md
   - Checks: checks.md
   - Execution Results: results.md

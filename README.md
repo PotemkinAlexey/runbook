@@ -78,6 +78,7 @@ runbook run checks.py --context '{"items": [1, 2, 3]}'
 - [Declarative Runbooks](docs/declarative.md)
 - [Embedding Guide](docs/embedding.md)
 - [Project Philosophy](docs/philosophy.md)
+- [Troubleshooting And FAQ](docs/troubleshooting.md)
 - [Core Concepts](docs/concepts.md)
 - [Checks](docs/checks.md)
 - [Execution Results](docs/results.md)
