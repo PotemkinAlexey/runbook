@@ -67,6 +67,18 @@ Or compute values:
 step("Load").load("files", lambda context: ["daily.csv"])
 ```
 
+Use `inputs()` and `publish()` when a step has explicit dependencies and outputs:
+
+```python
+step("Find files").publish("files", find_files)
+
+(
+    step("Build manifest")
+    .inputs("files")
+    .publish("manifest", build_manifest)
+)
+```
+
 ## Checks
 
 Checks are predicates over the context.

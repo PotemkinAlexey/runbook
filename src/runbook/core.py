@@ -30,6 +30,8 @@ class Step:
         self.failure_conditions: List[tuple[Check, str]] = []
         self.context_modifiers: List[ContextModifier] = []
         self.actions: List[Action] = []
+        self.required_inputs: List[str] = []
+        self.publishers: List[tuple[str, Loader]] = []
         self.on_expect_failure: List[Action] = []
         self.retry_attempts = 1
         self.retry_delay_seconds = 0.0
@@ -86,6 +88,14 @@ class Step:
     def load(self, key: str, loader_fn: Loader) -> "Step":
         return self.with_loader(loader_fn, key)
 
+    def inputs(self, *keys: str) -> "Step":
+        self.required_inputs.extend(keys)
+        return self
+
+    def publish(self, key: str, fn: Loader) -> "Step":
+        self.publishers.append((key, fn))
+        return self
+
     def with_external(self, modifier_fn: ContextModifier) -> "Step":
         self.context_modifiers.append(modifier_fn)
         return self
@@ -124,6 +134,8 @@ class Step:
         raise RuntimeError("unreachable retry state")
 
     def _run_once(self, context: Context, active_logger: RunbookLogger, started_at: float) -> StepResult:
+        self._validate_inputs(context, active_logger)
+
         for modifier in self.context_modifiers:
             modifier(context)
 
@@ -142,6 +154,9 @@ class Step:
         self._run_failure_conditions(context, active_logger)
         self._run_requirements(context, active_logger)
         warnings = self._run_warning_conditions(context, active_logger)
+
+        for key, publisher in self.publishers:
+            context[key] = publisher(context)
 
         for action in self.actions:
             action(context)
@@ -197,6 +212,12 @@ class Step:
             return check(context)
         except Exception as exc:
             raise RunbookFailedError(self.name, check.name, f"Check failed with error: {exc}") from None
+
+    def _validate_inputs(self, context: Context, logger: RunbookLogger) -> None:
+        for key in self.required_inputs:
+            logger.check_started("input", key)
+            if _get_context_value(context, key) is None:
+                self._fail(context, f"input({key})", f"Missing required input: {key}", logger)
 
     def _fail(self, context: Context, condition: str, message: str, logger: RunbookLogger) -> None:
         context["step_name"] = self.name
@@ -494,6 +515,18 @@ def _failed_result_from_error(error: RunbookFailedError, started_at: float) -> R
 
 def _result_already_recorded(results: List[ResultNode], failed_result: ResultNode) -> bool:
     return any(result is failed_result for result in results)
+
+
+def _get_context_value(context: Context, key: str) -> Any:
+    value: Any = context
+    for part in key.split("."):
+        if isinstance(value, dict):
+            value = value.get(part)
+        else:
+            value = getattr(value, part, None)
+        if value is None:
+            return None
+    return value
 
 
 def _run_expanded_item(item: Any, context: Context, steps_to_run: List[Step], logger: RunbookLogger) -> None:

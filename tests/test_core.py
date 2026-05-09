@@ -39,6 +39,20 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(context["base"], 2)
         self.assertEqual(context["count"], 3)
 
+    def test_step_publish_stores_output_in_context(self):
+        context = {"files": ["a.csv"]}
+
+        step("manifest").inputs("files").publish("manifest", lambda ctx: {"files": ctx["files"]}).run(context)
+
+        self.assertEqual(context["manifest"], {"files": ["a.csv"]})
+
+    def test_step_inputs_fail_with_clear_message(self):
+        with self.assertRaises(RunbookFailedError) as raised:
+            step("manifest").inputs("files").publish("manifest", lambda ctx: {}).run({})
+
+        self.assertEqual(raised.exception.condition, "input(files)")
+        self.assertEqual(raised.exception.message, "Missing required input: files")
+
     def test_step_supports_declarative_requirements(self):
         context = {}
 
