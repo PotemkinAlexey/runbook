@@ -40,6 +40,30 @@ class SchemaValidationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_value({"id": 1}, lambda value: False)
 
+    def test_validate_value_accepts_pydantic_v2_style_model(self):
+        class RowModel:
+            value = None
+
+            @classmethod
+            def model_validate(cls, value):
+                cls.value = value
+
+        validate_value({"id": 1}, RowModel)
+
+        self.assertEqual(RowModel.value, {"id": 1})
+
+    def test_validate_value_accepts_pydantic_v1_style_model(self):
+        class RowModel:
+            value = None
+
+            @classmethod
+            def parse_obj(cls, value):
+                cls.value = value
+
+        validate_value({"id": 1}, RowModel)
+
+        self.assertEqual(RowModel.value, {"id": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

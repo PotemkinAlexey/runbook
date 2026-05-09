@@ -74,8 +74,11 @@ step("Validate row").validate_schema(
 The schema can be:
 
 - a callable
-- a Pydantic model
+- a Pydantic v2 model with `model_validate`
+- a Pydantic v1 model with `parse_obj`
 - a small JSON-schema-like dictionary
+
+Pydantic stays optional. `runbook` calls the model method when the model object provides it, but does not require Pydantic as a core dependency.
 
 ## Registry And Plugins
 
