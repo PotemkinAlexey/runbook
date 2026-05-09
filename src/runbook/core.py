@@ -6,13 +6,13 @@ import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from time import monotonic, sleep
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from .checks import Check
 from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
-from .result import RunbookResult, StepResult
+from .result import ResultNode, RunbookResult, StageResult, StepResult
 from .templates import render_template
 from .types import Action, Context, ContextModifier, Loader
 
@@ -225,12 +225,61 @@ def step(name: str) -> Step:
     return Step(name)
 
 
+class Stage:
+    """A reusable group of steps and nested stages."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.children: List[ExecutableNode] = []
+
+    def add(self, child: "ExecutableNode") -> "Stage":
+        self.children.append(child)
+        return self
+
+    def add_step(self, step: Step) -> "Stage":
+        return self.add(step)
+
+    def run(
+        self,
+        context: Context,
+        logger: Optional[RunbookLogger] = None,
+        index: Optional[int] = None,
+        total: Optional[int] = None,
+    ) -> StageResult:
+        started_at = monotonic()
+        active_logger = logger or get_runbook_logger()
+        active_logger.stage_started(self.name, index=index, total=total)
+        results: List[ResultNode] = []
+
+        try:
+            for child_index, child in enumerate(self.children, start=1):
+                results.append(child.run(context, logger=active_logger, index=child_index, total=len(self.children)))
+            active_logger.stage_passed(self.name)
+            return StageResult.success(self.name, results, duration_seconds=_elapsed(started_at))
+        except RunbookFailedError as exc:
+            active_logger.stage_failed(self.name, exc.condition)
+            failed_result = _failed_result_from_error(exc, started_at)
+            if not _result_already_recorded(results, failed_result):
+                results.append(failed_result)
+            stage_result = StageResult.failure(self.name, results, exc, duration_seconds=_elapsed(started_at))
+            exc.result = stage_result
+            exc.path = [self.name] + list(getattr(exc, "path", [exc.step_name]))
+            raise
+
+
+def stage(name: str) -> Stage:
+    return Stage(name)
+
+
+ExecutableNode = Union[Step, Stage]
+
+
 class Runbook:
     """A sequence of runbook steps."""
 
     def __init__(self, name: Optional[str] = None):
         self.name = name
-        self.steps: List[Step] = []
+        self.steps: List[ExecutableNode] = []
         self.on_failure: Optional[Action] = None
         self.expander_key: Optional[str] = None
         self.expander_steps: List[Step] = []
@@ -243,14 +292,16 @@ class Runbook:
         return self
 
     def add_step(self, step: Step) -> "Runbook":
-        if self.in_expand_mode:
-            self.expander_steps.append(step)
-        else:
-            self.steps.append(step)
-        return self
+        return self.add(step)
 
-    def add(self, step: Step) -> "Runbook":
-        return self.add_step(step)
+    def add(self, child: ExecutableNode) -> "Runbook":
+        if self.in_expand_mode:
+            if not isinstance(child, Step):
+                raise TypeError("expand() can only contain Step instances")
+            self.expander_steps.append(child)
+        else:
+            self.steps.append(child)
+        return self
 
     def expand(
         self,
@@ -309,28 +360,34 @@ class Runbook:
 
     def execute(self, context: Context) -> RunbookResult:
         started_at = monotonic()
-        executed_steps: List[StepResult] = []
+        children: List[ResultNode] = []
         logger = get_runbook_logger()
         logger.runbook_started(self.name, len(self.steps))
 
         try:
-            for index, step in enumerate(self.steps, start=1):
-                executed_steps.append(step.run(context, logger=logger, index=index, total=len(self.steps)))
-            logger.runbook_passed(self.name, len(executed_steps))
-            return RunbookResult.success(self.name, context, executed_steps, duration_seconds=_elapsed(started_at))
+            for index, child in enumerate(self.steps, start=1):
+                children.append(child.run(context, logger=logger, index=index, total=len(self.steps)))
+            logger.runbook_passed(self.name, len(children))
+            return RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at))
         except RunbookFailedError as exc:
             logger.runbook_failed(self.name, exc.step_name, exc.condition)
-            executed_steps.append(
-                StepResult(name=exc.step_name, status="failed", duration_seconds=_elapsed(started_at))
-            )
+            failed_result = _failed_result_from_error(exc, started_at)
+            if not _result_already_recorded(children, failed_result):
+                children.append(failed_result)
             self._run_failure_handler(context, logger)
-            return RunbookResult.failure(self.name, context, executed_steps, exc, duration_seconds=_elapsed(started_at))
+            return RunbookResult.failure(
+                self.name,
+                context,
+                exc,
+                children=children,
+                duration_seconds=_elapsed(started_at),
+            )
 
     def execute_parallel(self, context: Context, max_workers: Optional[int] = None) -> RunbookResult:
         started_at = monotonic()
         logger = get_runbook_logger()
         logger.runbook_started(self.name, len(self.steps))
-        results_by_index: dict[int, StepResult] = {}
+        results_by_index: dict[int, ResultNode] = {}
         contexts_by_index: dict[int, Context] = {}
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -342,31 +399,31 @@ class Runbook:
             for future in as_completed(futures):
                 index = futures[future]
                 try:
-                    step_result, step_context = future.result()
+                    child_result, step_context = future.result()
                 except RunbookFailedError as exc:
                     logger.runbook_failed(self.name, exc.step_name, exc.condition)
-                    failed_steps = _ordered_step_results(results_by_index)
-                    failed_steps.append(
-                        StepResult(name=exc.step_name, status="failed", duration_seconds=_elapsed(started_at))
-                    )
+                    failed_children = _ordered_results(results_by_index)
+                    failed_result = _failed_result_from_error(exc, started_at)
+                    if not _result_already_recorded(failed_children, failed_result):
+                        failed_children.append(failed_result)
                     self._run_failure_handler(context, logger)
                     return RunbookResult.failure(
                         self.name,
                         context,
-                        failed_steps,
                         exc,
+                        children=failed_children,
                         duration_seconds=_elapsed(started_at),
                     )
 
-                results_by_index[index] = step_result
+                results_by_index[index] = child_result
                 contexts_by_index[index] = step_context
 
         for index in sorted(contexts_by_index):
             context.update(contexts_by_index[index])
 
-        executed_steps = _ordered_step_results(results_by_index)
-        logger.runbook_passed(self.name, len(executed_steps))
-        return RunbookResult.success(self.name, context, executed_steps, duration_seconds=_elapsed(started_at))
+        children = _ordered_results(results_by_index)
+        logger.runbook_passed(self.name, len(children))
+        return RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at))
 
     def run(self, context: Context) -> None:
         result = self.execute(context)
@@ -414,18 +471,29 @@ def _elapsed(started_at: float) -> float:
 
 
 def _run_step_in_context_copy(
-    step: Step,
+    step: ExecutableNode,
     context: Context,
     index: int,
     total: int,
     logger: RunbookLogger,
-) -> tuple[StepResult, Context]:
+) -> tuple[ResultNode, Context]:
     step_context = context.copy()
     return step.run(step_context, logger=logger, index=index, total=total), step_context
 
 
-def _ordered_step_results(results_by_index: dict[int, StepResult]) -> List[StepResult]:
+def _ordered_results(results_by_index: dict[int, ResultNode]) -> List[ResultNode]:
     return [results_by_index[index] for index in sorted(results_by_index)]
+
+
+def _failed_result_from_error(error: RunbookFailedError, started_at: float) -> ResultNode:
+    result = getattr(error, "result", None)
+    if isinstance(result, (StepResult, StageResult)):
+        return result
+    return StepResult(name=error.step_name, status="failed", duration_seconds=_elapsed(started_at))
+
+
+def _result_already_recorded(results: List[ResultNode], failed_result: ResultNode) -> bool:
+    return any(result is failed_result for result in results)
 
 
 def _run_expanded_item(item: Any, context: Context, steps_to_run: List[Step], logger: RunbookLogger) -> None:

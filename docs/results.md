@@ -83,6 +83,26 @@ Fields:
 - `warnings`: warnings collected from `warn_when`
 - `duration_seconds`: step runtime
 
+## Result Tree
+
+Runbook results preserve the execution tree.
+
+```text
+RunbookResult
+  StageResult("Pre-checks")
+    StepResult("Check files")
+    StepResult("Check schema")
+  StepResult("Run export")
+```
+
+Use `children` for the nested tree and `steps` for the flattened leaf steps kept for backward compatibility.
+
+```python
+result.children
+result.steps
+result.find("Check files")
+```
+
 ## Formatting Failures
 
 ```python

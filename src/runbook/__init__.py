@@ -19,13 +19,13 @@ from .checks import (
     not_,
     not_empty,
 )
-from .core import Runbook, Step, step
+from .core import Runbook, Stage, Step, stage, step
 from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
 from .reporting import format_failure
-from .result import RunbookResult, StepResult
+from .result import RunbookResult, StageResult, StepResult
 from .types import Action, Context, ContextModifier, Loader
 
 __all__ = [
@@ -36,6 +36,8 @@ __all__ = [
     "Step",
     "StepExecutionError",
     "StepResult",
+    "Stage",
+    "StageResult",
     "Check",
     "Action",
     "Context",
@@ -67,5 +69,6 @@ __all__ = [
     "not_empty",
     "raise_",
     "safe_eval",
+    "stage",
     "step",
 ]

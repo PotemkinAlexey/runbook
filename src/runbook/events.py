@@ -55,6 +55,16 @@ class RunbookLogger:
     def step_passed(self, name: str) -> None:
         self.logger.info("runbook | step pass: %s", name)
 
+    def stage_started(self, name: str, index: Optional[int] = None, total: Optional[int] = None) -> None:
+        prefix = _step_prefix(index, total)
+        self.logger.info("runbook | %sstage start: %s", prefix, name)
+
+    def stage_passed(self, name: str) -> None:
+        self.logger.info("runbook | stage pass: %s", name)
+
+    def stage_failed(self, name: str, condition: str) -> None:
+        self.logger.error("runbook | stage fail: %s [%s]", name, condition)
+
     def step_skipped(self, name: str, message: Optional[str]) -> None:
         suffix = f" - {message}" if message else ""
         self.logger.info("runbook | step skip: %s%s", name, suffix)

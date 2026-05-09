@@ -22,6 +22,30 @@ from runbook import not_empty, step
 step("Check files").require(not_empty("files"))
 ```
 
+## Stage
+
+A `Stage` groups steps and nested stages into a readable execution tree.
+
+```python
+from runbook import Runbook, stage, step
+
+runbook = (
+    Runbook("Orders export")
+    .add(
+        stage("Pre-checks")
+        .add(step("Check files"))
+        .add(step("Check schema"))
+    )
+    .add(step("Run export"))
+    .add(
+        stage("Post-checks")
+        .add(step("Validate manifest"))
+    )
+)
+```
+
+Stages execute children in order and return nested `StageResult` objects.
+
 ## Context
 
 The context is a mutable dictionary shared across steps.

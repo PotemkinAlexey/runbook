@@ -5,11 +5,13 @@ This page documents the intended stable surface of `runbook`.
 ## Core
 
 ```python
-from runbook import Runbook, Step, step
+from runbook import Runbook, Stage, Step, stage, step
 ```
 
 - `Runbook(name=None)`: sequence of steps
+- `stage(name)`: convenience constructor for `Stage`
 - `step(name)`: convenience constructor for `Step`
+- `Stage(name)`: group of steps and nested stages
 - `Step(name)`: step class
 
 Preferred style:

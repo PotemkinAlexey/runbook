@@ -2,7 +2,20 @@ import unittest
 from threading import Lock
 from time import sleep
 
-from runbook import Runbook, RunbookFailedError, Step, empty, gt, if_else, matches_any, not_empty, safe_eval, step
+from runbook import (
+    Runbook,
+    RunbookFailedError,
+    StageResult,
+    Step,
+    empty,
+    gt,
+    if_else,
+    matches_any,
+    not_empty,
+    safe_eval,
+    stage,
+    step,
+)
 from runbook.exceptions import StepExecutionError
 
 
@@ -103,6 +116,7 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertFalse(result.failed)
         self.assertEqual(result.name, "ok")
         self.assertEqual([step_result.name for step_result in result.steps], ["load"])
+        self.assertEqual([child.name for child in result.children], ["load"])
         self.assertIsNone(result.error)
 
     def test_runbook_execute_returns_failure_result(self):
@@ -122,6 +136,44 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(data["context"]["items"], [1])
         self.assertIsInstance(data["summary"]["duration_seconds"], float)
         self.assertIsInstance(data["steps"][0]["duration_seconds"], float)
+
+    def test_runbook_supports_nested_stages(self):
+        result = (
+            Runbook("Orders export")
+            .add(
+                stage("Pre-checks")
+                .add(step("Check files").set("files", ["orders.csv"]).require(not_empty("files")))
+                .add(step("Check schema"))
+            )
+            .add(step("Run export").set("exported", True))
+            .add(stage("Post-checks").add(step("Validate manifest")))
+            .execute({})
+        )
+
+        self.assertTrue(result.passed)
+        self.assertIsInstance(result.children[0], StageResult)
+        self.assertEqual(result.children[0].name, "Pre-checks")
+        self.assertEqual([child.name for child in result.children[0].children], ["Check files", "Check schema"])
+        self.assertEqual([step_result.name for step_result in result.steps], [
+            "Check files",
+            "Check schema",
+            "Run export",
+            "Validate manifest",
+        ])
+
+    def test_result_tree_json_preserves_nested_children(self):
+        result = Runbook("tree").add(stage("group").add(step("leaf"))).execute({})
+
+        data = result.to_dict()
+
+        self.assertEqual(data["children"][0]["type"], "stage")
+        self.assertEqual(data["children"][0]["children"][0]["type"], "step")
+
+    def test_result_find_returns_nested_result(self):
+        result = Runbook("tree").add(stage("group").add(step("leaf"))).execute({})
+
+        self.assertEqual(result.find("leaf").name, "leaf")
+        self.assertEqual(result.find("group").name, "group")
 
     def test_runbook_expand_context_manager_runs_steps_for_each_item(self):
         runbook = Runbook("expand").add(step("load").set("items", [1, 2]))
