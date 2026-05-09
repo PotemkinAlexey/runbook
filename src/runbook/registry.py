@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import metadata
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from .checks import Check
@@ -108,3 +109,25 @@ def list_registered_checks() -> List[str]:
 
 def list_registered_actions() -> List[str]:
     return default_registry.list_actions()
+
+
+def load_registry_entry_points(group: str = "runbook.plugins", registry: Optional[Registry] = None) -> List[str]:
+    """Load registry plugins from Python entry points.
+
+    Each entry point should resolve to a callable that accepts a `Registry`.
+    """
+
+    target_registry = registry or default_registry
+    loaded: List[str] = []
+    for entry_point in _entry_points_for_group(group):
+        plugin = entry_point.load()
+        plugin(target_registry)
+        loaded.append(entry_point.name)
+    return loaded
+
+
+def _entry_points_for_group(group: str):
+    entry_points = metadata.entry_points()
+    if hasattr(entry_points, "select"):
+        return entry_points.select(group=group)
+    return entry_points.get(group, [])

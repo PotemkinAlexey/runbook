@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from runbook import (
     Registry,
@@ -7,6 +8,7 @@ from runbook import (
     get_registered_check,
     list_registered_actions,
     list_registered_checks,
+    load_registry_entry_points,
     register_action,
     register_check,
     step,
@@ -60,6 +62,27 @@ class RegistryTest(unittest.TestCase):
         self.assertTrue(context["done"])
         self.assertIn(check_name, list_registered_checks())
         self.assertIn(action_name, list_registered_actions())
+
+    def test_load_registry_entry_points(self):
+        registry = Registry()
+
+        class FakeEntryPoint:
+            name = "fake"
+
+            def load(self):
+                def plugin(target_registry):
+                    target_registry.register_check(
+                        "from_plugin",
+                        lambda key: custom(f"from_plugin({key})", lambda ctx: bool(ctx.get(key))),
+                    )
+
+                return plugin
+
+        with patch("runbook.registry._entry_points_for_group", return_value=[FakeEntryPoint()]):
+            loaded = load_registry_entry_points(registry=registry)
+
+        self.assertEqual(loaded, ["fake"])
+        self.assertEqual(registry.list_checks(), ["from_plugin"])
 
 
 if __name__ == "__main__":

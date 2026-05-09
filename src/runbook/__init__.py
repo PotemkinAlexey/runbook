@@ -46,6 +46,7 @@ from .registry import (
     get_registered_check,
     list_registered_actions,
     list_registered_checks,
+    load_registry_entry_points,
     register_action,
     register_check,
 )
@@ -106,6 +107,7 @@ __all__ = [
     "lazy",
     "list_registered_actions",
     "list_registered_checks",
+    "load_registry_entry_points",
     "lt",
     "lte",
     "log",

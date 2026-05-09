@@ -87,6 +87,28 @@ registry = Registry()
 registry.register_action("notify", notify_factory)
 ```
 
+Packages can expose registry plugins with Python entry points:
+
+```toml
+[project.entry-points."runbook.plugins"]
+my_plugin = "my_package.runbook_plugin:register"
+```
+
+The plugin callable receives a `Registry`:
+
+```python
+def register(registry):
+    registry.register_check("between", between)
+```
+
+Load plugins explicitly from the embedding application:
+
+```python
+from runbook import load_registry_entry_points
+
+load_registry_entry_points()
+```
+
 ## Integration Module Shape
 
 A typical integration module should expose:
