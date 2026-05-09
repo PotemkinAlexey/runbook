@@ -113,6 +113,38 @@ runbook = (
 
 See `examples/orders_export.py` for a runnable version.
 
+## Function Decorator Style
+
+Use `@step` when plain Python functions are the most natural integration point:
+
+```python
+@step("Find files", output="files")
+def find_files(context):
+    return storage.list("orders/")
+
+@step("Read rows", inputs=["files"], outputs=["rows", "row_count"])
+def read_rows(context):
+    rows = warehouse.read(context["files"])
+    return rows, len(rows)
+
+@step("Export", inputs=["rows"])
+def export_rows(context):
+    warehouse.export(context["rows"])
+
+runbook = (
+    Runbook("Orders export")
+    .add(stage("Pre-checks").add(find_files).add(read_rows))
+    .add(export_rows)
+)
+```
+
+Decorator steps are still normal `Step` objects. You can add checks and policies to them:
+
+```python
+find_files.require(not_empty("files"), "No files found")
+read_rows.require(check_row_count("row_count", minimum=1), "No rows found")
+```
+
 ## Result Tree
 
 The output keeps the same structure:

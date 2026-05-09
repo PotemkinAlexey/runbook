@@ -71,6 +71,22 @@ runbook = (
 
 `inputs("files")` documents and validates that the step needs `context["files"]`.
 
+You can also use `@step` when a normal Python function should become a runbook step:
+
+```python
+@step("Find files", output="files")
+def find_files(context):
+    return ["daily.csv"]
+
+@step("Read rows", inputs=["files"], output="rows")
+def read_rows(context):
+    return [{"id": 1}]
+
+runbook = Runbook("Orders").add(find_files).add(read_rows)
+```
+
+If `output` is omitted, the decorated function runs as an action and may mutate context or perform a side effect.
+
 ## 5. Group Steps
 
 Use `stage()` when the runbook grows beyond a few steps:

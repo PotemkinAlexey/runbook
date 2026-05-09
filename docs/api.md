@@ -20,6 +20,14 @@ Preferred style:
 Runbook("checks").add(step("Check").require(...))
 ```
 
+Decorator style:
+
+```python
+@step("Load files", output="files")
+def load_files(context):
+    return ["daily.csv"]
+```
+
 ## Checks
 
 ```python

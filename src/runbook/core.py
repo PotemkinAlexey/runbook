@@ -6,7 +6,7 @@ import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from time import monotonic, sleep
-from typing import Any, List, Optional, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Union
 
 from .checks import Check
 from .context import lazy, resolve_context_value
@@ -41,6 +41,9 @@ class Step:
         self.retry_delay_seconds = 0.0
         self.timeout_seconds: Optional[float] = None
         self._logger = get_runbook_logger()
+
+    def __call__(self, fn: StepFunction) -> "Step":
+        return _step_from_function(fn, self.name, inputs=None, output=None, outputs=None)
 
     def expect(self, expr: str, message: str = "Expectation failed") -> "Step":
         self.expect_expr = expr
@@ -264,8 +267,123 @@ class Step:
             return f"[render error in expect_msg] {exc}"
 
 
-def step(name: str) -> Step:
-    return Step(name)
+StepFunction = Callable[[Context], Any]
+
+
+def step(
+    name: Optional[Union[str, StepFunction]] = None,
+    *,
+    inputs: Optional[Iterable[str]] = None,
+    output: Optional[str] = None,
+    outputs: Optional[Union[str, Sequence[str]]] = None,
+) -> Union[Step, Callable[[StepFunction], Step]]:
+    if callable(name):
+        return _step_from_function(name, None, inputs=inputs, output=output, outputs=outputs)
+
+    if inputs is None and output is None and outputs is None:
+        return Step(_step_name(name))
+
+    def decorator(fn: StepFunction) -> Step:
+        return _step_from_function(fn, name, inputs=inputs, output=output, outputs=outputs)
+
+    return decorator
+
+
+def _step_from_function(
+    fn: StepFunction,
+    name: Optional[str],
+    *,
+    inputs: Optional[Iterable[str]],
+    output: Optional[str],
+    outputs: Optional[Union[str, Sequence[str]]],
+) -> Step:
+    if output and outputs:
+        raise ValueError("use either output or outputs, not both")
+
+    decorated_step = Step(_step_name(name or _readable_function_name(fn)))
+    if inputs:
+        decorated_step.inputs(*inputs)
+
+    output_keys = _normalize_outputs(output, outputs)
+    if output_keys:
+        decorated_step.then(_publish_function_outputs(fn, output_keys, decorated_step.name))
+        return decorated_step
+
+    decorated_step.then(_run_step_function(fn, decorated_step.name))
+    return decorated_step
+
+
+def _step_name(name: Optional[str]) -> str:
+    if not name:
+        raise ValueError("step name is required")
+    return name
+
+
+def _readable_function_name(fn: StepFunction) -> str:
+    return fn.__name__.replace("_", " ").strip().title()
+
+
+def _normalize_outputs(output: Optional[str], outputs: Optional[Union[str, Sequence[str]]]) -> List[str]:
+    if output:
+        return [output]
+    if outputs is None:
+        return []
+    if isinstance(outputs, str):
+        return [outputs]
+    return list(outputs)
+
+
+def _run_step_function(fn: StepFunction, step_name: str) -> Action:
+    def action(context: Context) -> None:
+        try:
+            fn(context)
+        except RunbookFailedError:
+            raise
+        except Exception as exc:
+            raise RunbookFailedError(step_name, f"step_function({fn.__name__})", str(exc)) from None
+
+    return action
+
+
+def _publish_function_outputs(fn: StepFunction, output_keys: Sequence[str], step_name: str) -> Action:
+    def action(context: Context) -> None:
+        try:
+            result = fn(context)
+        except RunbookFailedError:
+            raise
+        except Exception as exc:
+            raise RunbookFailedError(step_name, f"step_function({fn.__name__})", str(exc)) from None
+
+        if len(output_keys) == 1:
+            context[output_keys[0]] = result
+            return
+        if isinstance(result, dict):
+            for key in output_keys:
+                try:
+                    context[key] = result[key]
+                except KeyError:
+                    raise RunbookFailedError(
+                        step_name,
+                        f"step_function({fn.__name__})",
+                        f"Missing output key: {key}",
+                    ) from None
+            return
+        if not isinstance(result, (list, tuple)):
+            raise RunbookFailedError(
+                step_name,
+                f"step_function({fn.__name__})",
+                "Multi-output step functions must return a dict, list, or tuple",
+            )
+        if len(result) != len(output_keys):
+            raise RunbookFailedError(
+                step_name,
+                f"step_function({fn.__name__})",
+                "Multi-output step function returned the wrong number of values",
+            )
+        for key, value in zip(output_keys, result):
+            context[key] = value
+
+    return action
 
 
 class Stage:

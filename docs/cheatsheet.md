@@ -8,6 +8,7 @@ Use this page when you know what you want to do but not which API to choose.
 | --- | --- |
 | Create a runbook | `Runbook("Name")` |
 | Add one operation | `.add(step("Name"))` |
+| Turn a function into a step | `@step("Name", output="key")` |
 | Group operations | `.add(stage("Name").add(...))` |
 | Run and inspect result | `.execute(context)` |
 | Run and raise on failure | `.run(context)` |
@@ -27,6 +28,23 @@ Recommended default: use `publish()` for new code and `inputs()` on consuming st
 ```python
 step("Find files").publish("files", find_files)
 step("Read rows").inputs("files").publish("rows", read_rows)
+```
+
+Decorator equivalent:
+
+```python
+@step("Find files", output="files")
+def find_files(context):
+    return ["daily.csv"]
+```
+
+For multiple outputs, return a dict or tuple/list:
+
+```python
+@step("Read rows", outputs=["rows", "row_count"])
+def read_rows(context):
+    rows = [{"id": 1}]
+    return rows, len(rows)
 ```
 
 ## Validate Data

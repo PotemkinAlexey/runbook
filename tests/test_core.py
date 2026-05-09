@@ -66,6 +66,78 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertEqual(context["manifest"], {"files": ["a.csv"]})
 
+    def test_step_decorator_publishes_single_output(self):
+        @step("Find files", output="files")
+        def find_files(ctx):
+            return ["a.csv"]
+
+        context = {}
+        result = Runbook("decorator").add(find_files).execute(context)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(context["files"], ["a.csv"])
+        self.assertEqual(find_files.name, "Find files")
+
+    def test_step_decorator_uses_function_name_by_default(self):
+        @step(output="files")
+        def find_files(ctx):
+            return ["a.csv"]
+
+        self.assertEqual(find_files.name, "Find Files")
+
+    def test_step_decorator_validates_inputs(self):
+        @step("Read rows", inputs=["files"], output="rows")
+        def read_rows(ctx):
+            return [{"id": 1, "file": ctx["files"][0]}]
+
+        context = {"files": ["a.csv"]}
+        read_rows.run(context)
+
+        self.assertEqual(context["rows"], [{"id": 1, "file": "a.csv"}])
+
+    def test_step_decorator_publishes_multiple_outputs_from_tuple(self):
+        @step("Read rows", outputs=["rows", "row_count"])
+        def read_rows(ctx):
+            return [{"id": 1}], 1
+
+        context = {}
+        read_rows.run(context)
+
+        self.assertEqual(context["rows"], [{"id": 1}])
+        self.assertEqual(context["row_count"], 1)
+
+    def test_step_decorator_publishes_multiple_outputs_from_dict(self):
+        @step("Read rows", outputs=["rows", "row_count"])
+        def read_rows(ctx):
+            return {"rows": [{"id": 1}], "row_count": 1}
+
+        context = {}
+        read_rows.run(context)
+
+        self.assertEqual(context["rows"], [{"id": 1}])
+        self.assertEqual(context["row_count"], 1)
+
+    def test_step_decorator_without_output_runs_action(self):
+        @step("Mark done")
+        def mark_done(ctx):
+            ctx["done"] = True
+
+        context = {}
+        mark_done.run(context)
+
+        self.assertTrue(context["done"])
+
+    def test_step_decorator_wraps_function_errors(self):
+        @step("Broken")
+        def broken(ctx):
+            raise RuntimeError("boom")
+
+        result = Runbook("decorator").add(broken).execute({})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "step_function(broken)")
+        self.assertEqual(result.error.message, "boom")
+
     def test_step_inputs_fail_with_clear_message(self):
         with self.assertRaises(RunbookFailedError) as raised:
             step("manifest").inputs("files").publish("manifest", lambda ctx: {}).run({})
