@@ -10,8 +10,10 @@ nav:
   - Quickstart: quickstart.md
   - Cheat Sheet: cheatsheet.md
   - Pipeline Guide: pipelines.md
+  - Examples Cookbook: examples.md
   - Declarative Runbooks: declarative.md
   - Embedding Guide: embedding.md
+  - Project Philosophy: philosophy.md
   - Core Concepts: concepts.md
   - Checks: checks.md
   - Execution Results: results.md

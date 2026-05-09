@@ -52,7 +52,8 @@ The result is a structured execution tree that can be printed, serialized, expor
 1. Read [Quickstart](quickstart.md) for the smallest useful example.
 2. Keep [Cheat Sheet](cheatsheet.md) open while writing your first runbook.
 3. Read [Pipeline Guide](pipelines.md) for the recommended production shape.
-4. Use [Recipes](recipes.md) when adding a specific behavior.
-5. Keep [Advanced Usage](advanced.md) for later.
+4. Use [Examples Cookbook](examples.md) when adapting a concrete scenario.
+5. Read [Project Philosophy](philosophy.md) before adding orchestration-like behavior.
+6. Keep [Advanced Usage](advanced.md) for later.
 
 Most users only need `Runbook`, `stage`, `step`, `inputs`, `publish`, and `require`.
