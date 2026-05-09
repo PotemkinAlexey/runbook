@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -301,8 +302,9 @@ def _step_from_function(
         raise ValueError("use either output or outputs, not both")
 
     decorated_step = Step(_step_name(name or _readable_function_name(fn)))
-    if inputs:
-        decorated_step.inputs(*inputs)
+    input_keys = _function_input_keys(fn, inputs)
+    if input_keys:
+        decorated_step.inputs(*input_keys)
 
     output_keys = _normalize_outputs(output, outputs)
     if output_keys:
@@ -323,6 +325,27 @@ def _readable_function_name(fn: StepFunction) -> str:
     return fn.__name__.replace("_", " ").strip().title()
 
 
+def _function_input_keys(fn: StepFunction, explicit_inputs: Optional[Iterable[str]]) -> List[str]:
+    keys = list(explicit_inputs or [])
+    for name in _signature_context_keys(fn):
+        if name not in keys:
+            keys.append(name)
+    return keys
+
+
+def _signature_context_keys(fn: StepFunction) -> List[str]:
+    keys: List[str] = []
+    for parameter in inspect.signature(fn).parameters.values():
+        if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+            continue
+        if parameter.name in ("context", "ctx"):
+            continue
+        if parameter.default is not parameter.empty:
+            continue
+        keys.append(parameter.name)
+    return keys
+
+
 def _normalize_outputs(output: Optional[str], outputs: Optional[Union[str, Sequence[str]]]) -> List[str]:
     if output:
         return [output]
@@ -336,7 +359,7 @@ def _normalize_outputs(output: Optional[str], outputs: Optional[Union[str, Seque
 def _run_step_function(fn: StepFunction, step_name: str) -> Action:
     def action(context: Context) -> None:
         try:
-            fn(context)
+            _call_step_function(fn, context)
         except RunbookFailedError:
             raise
         except Exception as exc:
@@ -348,7 +371,7 @@ def _run_step_function(fn: StepFunction, step_name: str) -> Action:
 def _publish_function_outputs(fn: StepFunction, output_keys: Sequence[str], step_name: str) -> Action:
     def action(context: Context) -> None:
         try:
-            result = fn(context)
+            result = _call_step_function(fn, context)
         except RunbookFailedError:
             raise
         except Exception as exc:
@@ -384,6 +407,30 @@ def _publish_function_outputs(fn: StepFunction, output_keys: Sequence[str], step
             context[key] = value
 
     return action
+
+
+def _call_step_function(fn: StepFunction, context: Context) -> Any:
+    kwargs = {}
+    positional_context = False
+    for parameter in inspect.signature(fn).parameters.values():
+        if parameter.kind == parameter.VAR_POSITIONAL:
+            continue
+        if parameter.kind == parameter.VAR_KEYWORD:
+            continue
+        if parameter.name in ("context", "ctx"):
+            if parameter.kind == parameter.POSITIONAL_ONLY:
+                positional_context = True
+            else:
+                kwargs[parameter.name] = context
+            continue
+        value = _get_context_value(context, parameter.name)
+        if value is None and parameter.default is not parameter.empty:
+            continue
+        kwargs[parameter.name] = value
+
+    if positional_context:
+        return fn(context, **kwargs)
+    return fn(**kwargs)
 
 
 class Stage:

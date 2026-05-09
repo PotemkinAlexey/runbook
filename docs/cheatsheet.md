@@ -38,6 +38,14 @@ def find_files(context):
     return ["daily.csv"]
 ```
 
+Function arguments are read from context and become inferred inputs:
+
+```python
+@step("Read rows", output="rows")
+def read_rows(files):
+    return [{"file": files[0]}]
+```
+
 For multiple outputs, return a dict or tuple/list:
 
 ```python

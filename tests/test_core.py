@@ -95,6 +95,50 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertEqual(context["rows"], [{"id": 1, "file": "a.csv"}])
 
+    def test_step_decorator_infers_inputs_from_function_signature(self):
+        @step("Read rows", output="rows")
+        def read_rows(files):
+            return [{"id": 1, "file": files[0]}]
+
+        context = {"files": ["a.csv"]}
+        read_rows.run(context)
+
+        self.assertEqual(read_rows.required_inputs, ["files"])
+        self.assertEqual(context["rows"], [{"id": 1, "file": "a.csv"}])
+
+    def test_step_decorator_infers_inputs_and_passes_context(self):
+        @step("Read rows", output="rows")
+        def read_rows(context, files):
+            return [{"id": context["source"], "file": files[0]}]
+
+        context = {"source": 1, "files": ["a.csv"]}
+        read_rows.run(context)
+
+        self.assertEqual(read_rows.required_inputs, ["files"])
+        self.assertEqual(context["rows"], [{"id": 1, "file": "a.csv"}])
+
+    def test_step_decorator_default_arguments_are_optional(self):
+        @step("Read rows", output="rows")
+        def read_rows(files, limit=10):
+            return files[:limit]
+
+        context = {"files": ["a.csv", "b.csv"]}
+        read_rows.run(context)
+
+        self.assertEqual(read_rows.required_inputs, ["files"])
+        self.assertEqual(context["rows"], ["a.csv", "b.csv"])
+
+    def test_step_decorator_missing_inferred_input_fails_clearly(self):
+        @step("Read rows", output="rows")
+        def read_rows(files):
+            return files
+
+        result = Runbook("decorator").add(read_rows).execute({})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "input(files)")
+        self.assertEqual(result.error.message, "Missing required input: files")
+
     def test_step_decorator_publishes_multiple_outputs_from_tuple(self):
         @step("Read rows", outputs=["rows", "row_count"])
         def read_rows(ctx):

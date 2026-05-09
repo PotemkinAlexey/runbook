@@ -87,6 +87,16 @@ runbook = Runbook("Orders").add(find_files).add(read_rows)
 
 If `output` is omitted, the decorated function runs as an action and may mutate context or perform a side effect.
 
+Decorator steps can also read context keys from function arguments:
+
+```python
+@step("Read rows", output="rows")
+def read_rows(files):
+    return [{"file": files[0]}]
+```
+
+Here `files` is automatically treated like `inputs("files")`.
+
 ## 5. Group Steps
 
 Use `stage()` when the runbook grows beyond a few steps:

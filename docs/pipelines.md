@@ -122,14 +122,14 @@ Use `@step` when plain Python functions are the most natural integration point:
 def find_files(context):
     return storage.list("orders/")
 
-@step("Read rows", inputs=["files"], outputs=["rows", "row_count"])
-def read_rows(context):
-    rows = warehouse.read(context["files"])
+@step("Read rows", outputs=["rows", "row_count"])
+def read_rows(files):
+    rows = warehouse.read(files)
     return rows, len(rows)
 
-@step("Export", inputs=["rows"])
-def export_rows(context):
-    warehouse.export(context["rows"])
+@step("Export")
+def export_rows(rows):
+    warehouse.export(rows)
 
 runbook = (
     Runbook("Orders export")
@@ -144,6 +144,8 @@ Decorator steps are still normal `Step` objects. You can add checks and policies
 find_files.require(not_empty("files"), "No files found")
 read_rows.require(check_row_count("row_count", minimum=1), "No rows found")
 ```
+
+Function arguments such as `files` and `rows` are read from context and inferred as required inputs. Use a `context` or `ctx` argument when the function needs the whole dictionary.
 
 ## Result Tree
 
