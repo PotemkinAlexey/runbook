@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "runbook"
 version = "0.1.0"
-description = "Small Airflow-oriented runbook DSL."
+description = "Embeddable Python toolkit for operational checks and data pipeline guardrails."
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "build>=1.0",
     "mkdocs>=1.5",
     "ruff>=0.5.0",
 ]
