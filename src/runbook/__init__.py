@@ -38,6 +38,15 @@ from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
+from .registry import (
+    Registry,
+    get_registered_action,
+    get_registered_check,
+    list_registered_actions,
+    list_registered_checks,
+    register_action,
+    register_check,
+)
 from .reporting import format_failure, format_result_tree, format_runbook_tree
 from .result import RunbookResult, StageResult, StepResult
 from .schema import validate_value
@@ -48,6 +57,7 @@ __all__ = [
     "RunbookFailedError",
     "RunbookLogger",
     "RunbookResult",
+    "Registry",
     "Step",
     "StepExecutionError",
     "StepResult",
@@ -81,11 +91,15 @@ __all__ = [
     "format_result_tree",
     "format_runbook_tree",
     "get_runbook_logger",
+    "get_registered_action",
+    "get_registered_check",
     "gt",
     "gte",
     "if_",
     "if_else",
     "instant_log",
+    "list_registered_actions",
+    "list_registered_checks",
     "lt",
     "lte",
     "log",
@@ -96,6 +110,8 @@ __all__ = [
     "post_export_checks",
     "pre_export_checks",
     "raise_",
+    "register_action",
+    "register_check",
     "safe_eval",
     "stage",
     "step",

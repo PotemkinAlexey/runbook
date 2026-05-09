@@ -79,6 +79,22 @@ from runbook import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from runbook import format_failure
 ```
 
+## Registry
+
+```python
+from runbook import (
+    Registry,
+    get_registered_action,
+    get_registered_check,
+    list_registered_actions,
+    list_registered_checks,
+    register_action,
+    register_check,
+)
+```
+
+Use registries to expose reusable checks and actions by stable names without adding scheduler behavior.
+
 ## Extension Types
 
 ```python

@@ -64,6 +64,29 @@ def between(key, low, high):
     )
 ```
 
+## Registry
+
+Use the registry when reusable checks or actions should be referenced by a stable name.
+
+```python
+from runbook import custom, get_registered_check, register_check
+
+@register_check("between")
+def between(key, low, high):
+    return custom(f"between({key}, {low}, {high})", lambda context: low <= context[key] <= high)
+
+step("Validate").require(get_registered_check("between", "count", 1, 10))
+```
+
+For isolated integrations, create a local `Registry` instead of using the default registry:
+
+```python
+from runbook import Registry
+
+registry = Registry()
+registry.register_action("notify", notify_factory)
+```
+
 ## Integration Module Shape
 
 A typical integration module should expose:
