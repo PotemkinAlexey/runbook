@@ -10,6 +10,7 @@ Use this page when you know what you want to do but not which API to choose.
 | Add one operation | `.add(step("Name"))` |
 | Turn a function into a step | `@step("Name", output="key")` |
 | Group operations | `.add(stage("Name").add(...))` |
+| Turn a function into a stage | `@stage("Name")` returning steps/stages |
 | Run and inspect result | `.execute(context)` |
 | Run and raise on failure | `.run(context)` |
 
@@ -53,6 +54,14 @@ For multiple outputs, return a dict or tuple/list:
 def read_rows(context):
     rows = [{"id": 1}]
     return rows, len(rows)
+```
+
+Group decorated steps with `@stage`:
+
+```python
+@stage("Pre-checks")
+def pre_checks():
+    return [find_files, read_rows]
 ```
 
 ## Validate Data

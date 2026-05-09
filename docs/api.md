@@ -26,6 +26,10 @@ Decorator style:
 @step("Load files", output="files")
 def load_files(context):
     return ["daily.csv"]
+
+@stage("Pre-checks")
+def pre_checks():
+    return [load_files]
 ```
 
 ## Checks

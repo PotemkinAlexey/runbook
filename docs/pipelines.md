@@ -138,6 +138,16 @@ runbook = (
 )
 ```
 
+Or group decorated steps with `@stage`:
+
+```python
+@stage("Pre-checks")
+def pre_checks():
+    return [find_files, read_rows]
+
+runbook = Runbook("Orders export").add(pre_checks).add(export_rows)
+```
+
 Decorator steps are still normal `Step` objects. You can add checks and policies to them:
 
 ```python

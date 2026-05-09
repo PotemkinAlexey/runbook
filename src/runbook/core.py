@@ -449,6 +449,12 @@ class Stage:
         self.fail_fast_enabled = True
         self.scoped_context_enabled = False
 
+    def __call__(self, fn: Callable[[], Any]) -> "Stage":
+        children = fn()
+        for child in _stage_children_from_value(children, fn.__name__):
+            self.add(child)
+        return self
+
     def add(self, child: "ExecutableNode") -> "Stage":
         self.children.append(child)
         return self
@@ -600,6 +606,18 @@ class Stage:
 
 def stage(name: str) -> Stage:
     return Stage(name)
+
+
+def _stage_children_from_value(value: Any, function_name: str) -> List["ExecutableNode"]:
+    if isinstance(value, (Step, Stage)):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        children = list(value)
+        for child in children:
+            if not isinstance(child, (Step, Stage)):
+                raise TypeError(f"stage function {function_name} returned a non-runbook child: {child!r}")
+        return children
+    raise TypeError(f"stage function {function_name} must return a Step, Stage, list, or tuple")
 
 
 ExecutableNode = Union[Step, Stage]

@@ -311,6 +311,54 @@ class RunbookCoreTest(unittest.TestCase):
             "Validate manifest",
         ])
 
+    def test_stage_decorator_builds_stage_from_step_list(self):
+        @step("Find files", output="files")
+        def find_files(ctx):
+            return ["orders.csv"]
+
+        @step("Read rows", output="rows")
+        def read_rows(files):
+            return [{"file": files[0]}]
+
+        @stage("Pre-checks")
+        def pre_checks():
+            return [find_files, read_rows]
+
+        result = Runbook("Orders export").add(pre_checks).execute({})
+
+        self.assertTrue(result.passed)
+        self.assertEqual(pre_checks.name, "Pre-checks")
+        self.assertEqual([child.name for child in pre_checks.children], ["Find files", "Read rows"])
+        self.assertEqual(result.context["rows"], [{"file": "orders.csv"}])
+
+    def test_stage_decorator_builds_stage_from_single_child(self):
+        @stage("Group")
+        def group():
+            return step("One")
+
+        self.assertEqual([child.name for child in group.children], ["One"])
+
+    def test_stage_decorator_supports_nested_stages(self):
+        @stage("Nested")
+        def nested():
+            return [step("One")]
+
+        @stage("Outer")
+        def outer():
+            return [nested, step("Two")]
+
+        result = Runbook("tree").add(outer).execute({})
+
+        self.assertTrue(result.passed)
+        self.assertEqual([child.name for child in outer.children], ["Nested", "Two"])
+
+    def test_stage_decorator_rejects_invalid_children(self):
+        with self.assertRaises(TypeError):
+
+            @stage("Bad")
+            def bad():
+                return ["not a step"]
+
     def test_result_tree_json_preserves_nested_children(self):
         result = Runbook("tree").add(stage("group").add(step("leaf"))).execute({})
 

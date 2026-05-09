@@ -117,6 +117,16 @@ runbook = (
 
 The result preserves this tree, so logs, CLI output, JSON, and failure messages stay readable.
 
+You can also use `@stage` to group decorated steps:
+
+```python
+@stage("Pre-checks")
+def pre_checks():
+    return [find_files, read_rows]
+
+runbook = Runbook("Orders").add(pre_checks)
+```
+
 ## 6. Print Useful Logs
 
 ```python
