@@ -35,6 +35,7 @@ from .data import (
     pre_export_checks,
     validation_stage,
 )
+from .declarative import runbook_from_dict, runbook_from_file
 from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
@@ -122,6 +123,8 @@ __all__ = [
     "register_check",
     "resolve_context_value",
     "resolve_value",
+    "runbook_from_dict",
+    "runbook_from_file",
     "safe_eval",
     "stage",
     "step",

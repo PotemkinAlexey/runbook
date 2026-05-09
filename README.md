@@ -74,6 +74,7 @@ runbook run checks.py --context '{"items": [1, 2, 3]}'
 - [Quickstart](docs/quickstart.md)
 - [Cheat Sheet](docs/cheatsheet.md)
 - [Pipeline Guide](docs/pipelines.md)
+- [Declarative Runbooks](docs/declarative.md)
 - [Embedding Guide](docs/embedding.md)
 - [Core Concepts](docs/concepts.md)
 - [Checks](docs/checks.md)

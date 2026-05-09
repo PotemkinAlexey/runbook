@@ -24,6 +24,30 @@ class RunbookCliTest(unittest.TestCase):
         self.assertEqual(runbook.name, "cli")
         self.assertEqual([step.name for step in runbook.steps], ["one"])
 
+    def test_load_runbook_from_json_file(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        path = Path(tmpdir.name) / "checks.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "name": "cli-json",
+                    "steps": [
+                        {
+                            "name": "one",
+                            "require": [{"check": "not_empty", "args": ["items"]}],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        runbook = load_runbook_from_file(str(path))
+
+        self.assertEqual(runbook.name, "cli-json")
+        self.assertEqual([step.name for step in runbook.steps], ["one"])
+
     def test_main_run_returns_success_exit_code(self):
         path = self._write_runbook(
             """

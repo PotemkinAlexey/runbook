@@ -69,6 +69,14 @@ from runbook import RunbookResult, StepResult
 
 Use `Runbook.execute()` to receive a `RunbookResult`.
 
+## Declarative Runbooks
+
+```python
+from runbook import runbook_from_dict, runbook_from_file
+```
+
+Use these helpers to build runbooks from JSON/YAML-style dictionaries and files.
+
 ## Errors
 
 ```python

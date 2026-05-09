@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .core import Runbook
+from .declarative import runbook_from_file
 from .events import configure_runbook_logging
 from .reporting import format_failure, format_result_tree, format_runbook_tree
 
@@ -66,6 +67,8 @@ def load_runbook_from_file(path: str) -> Runbook:
     file_path = Path(path).expanduser().resolve()
     if not file_path.exists():
         raise FileNotFoundError(f"runbook file not found: {file_path}")
+    if file_path.suffix.lower() in {".json", ".yaml", ".yml"}:
+        return runbook_from_file(str(file_path))
 
     module_name = f"_runbook_cli_{file_path.stem}"
     spec = importlib.util.spec_from_file_location(module_name, str(file_path))
