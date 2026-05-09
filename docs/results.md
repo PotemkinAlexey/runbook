@@ -116,6 +116,8 @@ result.steps
 result.find("Check files")
 ```
 
+Serialized tree nodes include `path`, for example `["Orders export", "Pre-checks", "Check files"]`.
+
 ## Formatting Failures
 
 ```python

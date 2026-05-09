@@ -36,10 +36,12 @@ class StepResult:
     def warned(self) -> bool:
         return bool(self.warnings)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, path: Optional[List[str]] = None) -> dict[str, Any]:
+        node_path = path or [self.name]
         return {
             "type": "step",
             "name": self.name,
+            "path": node_path,
             "status": self.status,
             "message": self.message,
             "warnings": list(self.warnings),
@@ -90,15 +92,17 @@ class StageResult:
                     return found
         return None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, path: Optional[List[str]] = None) -> dict[str, Any]:
+        node_path = path or [self.name]
         return {
             "type": "stage",
             "name": self.name,
+            "path": node_path,
             "status": self.status,
             "message": self.message,
             "warnings": list(self.warnings),
             "duration_seconds": self.duration_seconds,
-            "children": [child.to_dict() for child in self.children],
+            "children": [child.to_dict(path=node_path + [child.name]) for child in self.children],
             "error": _error_to_dict(self.error),
         }
 
@@ -197,7 +201,10 @@ class RunbookResult:
                 "warned": self.warned_count,
                 "duration_seconds": self.duration_seconds,
             },
-            "children": [child.to_dict() for child in self.children],
+            "children": [
+                child.to_dict(path=_root_path(self.name) + [child.name])
+                for child in self.children
+            ],
             "steps": [step.to_dict() for step in self.steps],
             "error": _error_to_dict(self.error),
         }
@@ -261,6 +268,10 @@ def _error_to_dict(error: Optional[RunbookFailedError]) -> Optional[dict[str, st
         "condition": error.condition,
         "message": error.message,
     }
+
+
+def _root_path(name: Optional[str]) -> List[str]:
+    return [name] if name else []
 
 
 def _flatten_steps(children: List[ResultNode]) -> List[StepResult]:

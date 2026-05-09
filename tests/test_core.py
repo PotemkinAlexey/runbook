@@ -202,6 +202,8 @@ class RunbookCoreTest(unittest.TestCase):
 
         self.assertEqual(data["children"][0]["type"], "stage")
         self.assertEqual(data["children"][0]["children"][0]["type"], "step")
+        self.assertEqual(data["children"][0]["path"], ["tree", "group"])
+        self.assertEqual(data["children"][0]["children"][0]["path"], ["tree", "group", "leaf"])
 
     def test_result_find_returns_nested_result(self):
         result = Runbook("tree").add(stage("group").add(step("leaf"))).execute({})
