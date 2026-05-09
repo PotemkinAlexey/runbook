@@ -276,6 +276,7 @@ class Stage:
         self.timeout_seconds: Optional[float] = None
         self.continue_on_error_enabled = False
         self.fail_fast_enabled = True
+        self.scoped_context_enabled = False
 
     def add(self, child: "ExecutableNode") -> "Stage":
         self.children.append(child)
@@ -321,6 +322,10 @@ class Stage:
         self.continue_on_error_enabled = False
         return self
 
+    def scoped(self, enabled: bool = True) -> "Stage":
+        self.scoped_context_enabled = enabled
+        return self
+
     def run(
         self,
         context: Context,
@@ -346,14 +351,15 @@ class Stage:
         raise RuntimeError("unreachable retry state")
 
     def _run_once(self, context: Context, active_logger: RunbookLogger, started_at: float) -> StageResult:
+        stage_context = dict(context) if self.scoped_context_enabled else context
         results: List[ResultNode] = []
         warnings: List[str] = []
 
         try:
             for check, message in self.skip_conditions:
                 active_logger.check_started("stage skip", check.name)
-                if _check_matches(self.name, check, context):
-                    rendered_msg = render_template(message, context)
+                if _check_matches(self.name, check, stage_context):
+                    rendered_msg = render_template(message, stage_context)
                     active_logger.step_skipped(self.name, rendered_msg)
                     return StageResult(
                         name=self.name,
@@ -364,13 +370,13 @@ class Stage:
 
             for check, message in self.failure_conditions:
                 active_logger.check_started("stage fail_when", check.name)
-                if _check_matches(self.name, check, context):
-                    raise RunbookFailedError(self.name, check.name, render_template(message, context))
+                if _check_matches(self.name, check, stage_context):
+                    raise RunbookFailedError(self.name, check.name, render_template(message, stage_context))
 
             for check, message in self.warning_conditions:
                 active_logger.check_started("stage warn_when", check.name)
-                if _check_matches(self.name, check, context):
-                    rendered_msg = render_template(message, context)
+                if _check_matches(self.name, check, stage_context):
+                    rendered_msg = render_template(message, stage_context)
                     active_logger.step_warning(self.name, rendered_msg)
                     warnings.append(rendered_msg)
 
@@ -378,7 +384,7 @@ class Stage:
             for child_index, child in enumerate(self.children, start=1):
                 try:
                     results.append(
-                        child.run(context, logger=active_logger, index=child_index, total=len(self.children))
+                        child.run(stage_context, logger=active_logger, index=child_index, total=len(self.children))
                     )
                 except RunbookFailedError as exc:
                     had_child_failure = True

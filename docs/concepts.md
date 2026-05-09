@@ -65,9 +65,15 @@ Use `continue_on_error()` when all children should run and the stage should repo
 stage("Validations").continue_on_error()
 ```
 
+Use `scoped()` when a reusable stage should read parent context but keep its own mutations local:
+
+```python
+stage("Sandbox").scoped().add(step("Set temp value").set("temp", 1))
+```
+
 ## Context
 
-The context is a mutable dictionary shared across steps.
+The context is a mutable dictionary shared across steps by default.
 
 ```python
 context = {"ds": "2026-05-09"}

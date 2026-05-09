@@ -217,6 +217,31 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertTrue(result.children[0].failed)
         self.assertEqual([child.name for child in result.children[0].children], ["bad", "after"])
 
+    def test_stage_context_is_shared_by_default(self):
+        context = {}
+
+        result = Runbook("stages").add(stage("group").add(step("set").set("value", 1))).execute(context)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(context["value"], 1)
+
+    def test_stage_scoped_context_does_not_mutate_parent(self):
+        context = {"source": "orders"}
+
+        result = (
+            Runbook("stages")
+            .add(
+                stage("group")
+                .scoped()
+                .add(step("set").set("value", 1))
+                .add(step("read parent").inputs("source"))
+            )
+            .execute(context)
+        )
+
+        self.assertTrue(result.passed)
+        self.assertEqual(context, {"source": "orders"})
+
     def test_runbook_expand_context_manager_runs_steps_for_each_item(self):
         runbook = Runbook("expand").add(step("load").set("items", [1, 2]))
         with runbook.expand("items") as each:
