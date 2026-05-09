@@ -1,5 +1,7 @@
 # Core Concepts
 
+This page defines the core vocabulary. For a production-style walkthrough, read [Pipeline Guide](pipelines.md).
+
 ## Runbook
 
 A `Runbook` is a named sequence of steps.
@@ -21,6 +23,15 @@ from runbook import not_empty, step
 
 step("Check files").require(not_empty("files"))
 ```
+
+Common step methods:
+
+- `inputs(...)`: declare required context keys
+- `publish(key, fn)`: compute and store output
+- `require(check, message)`: fail if a check does not pass
+- `warn_when(check, message)`: record a warning
+- `skip_when(check, message)`: skip the step cleanly
+- `then(action)`: run side effects after checks pass
 
 ## Stage
 
@@ -98,6 +109,8 @@ Use `lazy()` when a value is expensive and should be loaded only if a later chec
 step("Prepare").lazy("files", find_files)
 step("Check files").inputs("files").require(not_empty("files"))
 ```
+
+`inputs()` runs before values are created by the same step. Use `inputs()` on the step that consumes a value, not on the step that publishes it.
 
 Use `inputs()` and `publish()` when a step has explicit dependencies and outputs:
 

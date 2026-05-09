@@ -2,6 +2,8 @@
 
 `runbook` includes optional core helpers for common data engineering checks. They do not require Airflow or external services.
 
+Use these helpers after you understand the basic step shape from [Quickstart](quickstart.md). They are convenience checks, not integrations with external systems.
+
 ## Checks
 
 ```python
@@ -42,3 +44,32 @@ runbook = (
 ```
 
 These factories are intentionally small. They are examples of reusable patterns, not a scheduler.
+
+## Recommended Pattern
+
+For real pipelines, keep the external I/O in your own loaders and actions:
+
+```python
+def find_files(context):
+    return storage.list("orders/")
+
+def read_rows(context):
+    return warehouse.query("select * from orders")
+```
+
+Then wire them into explicit stages:
+
+```python
+(
+    Runbook("Orders export")
+    .add(
+        stage("Pre-checks")
+        .add(step("Find files").publish("files", find_files))
+        .add(step("Check files").inputs("files").require(check_not_empty("files")))
+        .add(step("Read rows").inputs("files").publish("rows", read_rows))
+        .add(step("Check schema").inputs("rows").require(check_schema("rows", ["id"])))
+    )
+)
+```
+
+This keeps cloud clients, database drivers, and scheduler-specific code outside the core DSL.

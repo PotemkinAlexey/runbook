@@ -1,31 +1,57 @@
 # runbook
 
-Embeddable Python toolkit for describing operational checks, data loading, and failure handling without hand-written control flow.
+`runbook` is a small embeddable Python framework for describing operational checks and data pipeline guardrails without scattering `if/else` logic through application code.
 
-`runbook` is not a scheduler and not an Airflow replacement. It is a small execution layer that can run inside a CLI command, API endpoint, cron job, Airflow task, test suite, or any other Python process.
+It is not a scheduler. It does not own workers, queues, DAG parsing, deployments, or calendars. You run it inside the process you already have: a CLI command, API endpoint, cron job, Airflow task, notebook, test suite, or service.
 
-## Example
+## The Idea
+
+Instead of writing this:
 
 ```python
-from runbook import Runbook, configure_runbook_logging, matches_any, not_empty, step
+files = find_files()
+if not files:
+    raise RuntimeError("No files found")
 
-configure_runbook_logging()
+rows = read_rows(files)
+if len(rows) == 0:
+    raise RuntimeError("No rows found")
 
-checks = (
-    Runbook("Daily input checks")
-    .add(
-        step("Check files")
-        .set("files", ["daily.csv"])
-        .require(not_empty("files"), "No files found")
-        .require(matches_any("files", "*.csv"), "CSV file is missing")
-    )
-)
-
-checks.run({})
+export(rows)
 ```
 
-## Start Here
+Describe the workflow:
 
-- [Quickstart](quickstart.md)
-- [Core Concepts](concepts.md)
-- [Recipes](recipes.md)
+```python
+from runbook import Runbook, check_row_count, not_empty, stage, step
+
+runbook = (
+    Runbook("Orders export")
+    .add(
+        stage("Pre-checks")
+        .add(step("Find files").publish("files", find_files))
+        .add(step("Check files").inputs("files").require(not_empty("files"), "No files found"))
+        .add(step("Read rows").inputs("files").publish("rows", read_rows))
+        .add(step("Check rows").publish("row_count", lambda ctx: len(ctx["rows"])).require(check_row_count()))
+    )
+    .add(step("Export").inputs("rows").then(export_rows))
+)
+```
+
+The result is a structured execution tree that can be printed, serialized, exported, or inspected by another system.
+
+## Who It Is For
+
+- Data engineers who need repeatable checks before and after pipeline steps.
+- Platform engineers who want a tiny embeddable execution layer without a scheduler dependency.
+- Application developers who want readable operational guardrails.
+- LLM-assisted workflows where generated code should produce predictable stages and checks instead of ad hoc branching.
+
+## How To Learn It
+
+1. Read [Quickstart](quickstart.md) for the smallest useful example.
+2. Read [Pipeline Guide](pipelines.md) for the recommended production shape.
+3. Use [Recipes](recipes.md) when adding a specific behavior.
+4. Keep [Advanced Usage](advanced.md) for later.
+
+Most users only need `Runbook`, `stage`, `step`, `inputs`, `publish`, and `require`.

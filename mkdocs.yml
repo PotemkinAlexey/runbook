@@ -8,12 +8,15 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Pipeline Guide: pipelines.md
+  - Embedding Guide: embedding.md
   - Core Concepts: concepts.md
   - Checks: checks.md
   - Execution Results: results.md
-  - Public API: api.md
   - Data Engineering Helpers: data.md
   - CLI: cli.md
   - Integrations: integrations.md
   - Recipes: recipes.md
   - Extending: extending.md
+  - Advanced Usage: advanced.md
+  - Public API: api.md

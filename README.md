@@ -72,15 +72,18 @@ runbook run checks.py --context '{"items": [1, 2, 3]}'
 ## Documentation
 
 - [Quickstart](docs/quickstart.md)
+- [Pipeline Guide](docs/pipelines.md)
+- [Embedding Guide](docs/embedding.md)
 - [Core Concepts](docs/concepts.md)
 - [Checks](docs/checks.md)
 - [Execution Results](docs/results.md)
-- [Public API](docs/api.md)
 - [Data Engineering Helpers](docs/data.md)
 - [CLI](docs/cli.md)
 - [Integrations](docs/integrations.md)
 - [Recipes](docs/recipes.md)
 - [Extending runbook](docs/extending.md)
+- [Advanced Usage](docs/advanced.md)
+- [Public API](docs/api.md)
 
 Build the docs site locally:
 
