@@ -566,6 +566,7 @@ class Stage:
                 except RunbookFailedError as exc:
                     had_child_failure = True
                     failed_result = _failed_result_from_error(exc, started_at)
+                    exc.result = failed_result
                     if not _result_already_recorded(results, failed_result):
                         results.append(failed_result)
                     if self.fail_fast_enabled:

@@ -49,6 +49,18 @@ class ObservabilityTest(unittest.TestCase):
         self.assertEqual(payload["name"], "observed")
         self.assertEqual(payload["status"], result.status)
 
+    def test_async_result_exporter_wraps_jsonl_exporter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir, "results.jsonl")
+
+            with AsyncResultExporter(JsonlResultExporter(str(path))) as exporter:
+                result = Runbook("observed").export_to(exporter).add(step("ok")).execute({})
+
+            lines = path.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(json.loads(lines[0])["status"], result.status)
+
     def test_async_result_exporter_flushes_background_results(self):
         exported = []
         exporter = AsyncResultExporter(exported.append)
@@ -78,6 +90,19 @@ class ObservabilityTest(unittest.TestCase):
 
         self.assertEqual(len(exporter.errors), 1)
         self.assertEqual(str(exporter.errors[0]), "export failed")
+
+    def test_async_result_exporter_close_is_idempotent(self):
+        exporter = AsyncResultExporter(lambda result: None)
+
+        exporter.close()
+        exporter.close()
+
+    def test_async_result_exporter_rejects_calls_after_close(self):
+        exporter = AsyncResultExporter(lambda result: None)
+        exporter.close()
+
+        with self.assertRaises(RuntimeError):
+            exporter(Runbook("observed").add(step("ok")).execute({}))
 
 
 if __name__ == "__main__":

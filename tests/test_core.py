@@ -161,6 +161,39 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(context["rows"], [{"id": 1}])
         self.assertEqual(context["row_count"], 1)
 
+    def test_step_decorator_multi_output_dict_requires_all_keys(self):
+        @step("Read rows", outputs=["rows", "row_count"])
+        def read_rows(ctx):
+            return {"rows": [{"id": 1}]}
+
+        result = Runbook("decorator").add(read_rows).execute({})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "step_function(read_rows)")
+        self.assertEqual(result.error.message, "Missing output key: row_count")
+
+    def test_step_decorator_multi_output_tuple_length_must_match(self):
+        @step("Read rows", outputs=["rows", "row_count"])
+        def read_rows(ctx):
+            return ([{"id": 1}],)
+
+        result = Runbook("decorator").add(read_rows).execute({})
+
+        self.assertTrue(result.failed)
+        self.assertEqual(result.error.condition, "step_function(read_rows)")
+        self.assertEqual(result.error.message, "Multi-output step function returned the wrong number of values")
+
+    def test_step_decorator_supports_ctx_argument(self):
+        @step("Read rows", output="rows")
+        def read_rows(ctx, files):
+            return [{"source": ctx["source"], "file": files[0]}]
+
+        context = {"source": "orders", "files": ["a.csv"]}
+        read_rows.run(context)
+
+        self.assertEqual(read_rows.required_inputs, ["files"])
+        self.assertEqual(context["rows"], [{"source": "orders", "file": "a.csv"}])
+
     def test_step_decorator_without_output_runs_action(self):
         @step("Mark done")
         def mark_done(ctx):
@@ -286,6 +319,26 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(data["context"]["items"], [1])
         self.assertIsInstance(data["summary"]["duration_seconds"], float)
         self.assertIsInstance(data["steps"][0]["duration_seconds"], float)
+
+    def test_runbook_result_json_contract_for_nested_failure(self):
+        result = Runbook("tree").add(stage("group").add(step("leaf").require(not_empty("items"), "missing"))).execute(
+            {}
+        )
+
+        data = result.to_dict()
+
+        self.assertEqual(data["name"], "tree")
+        self.assertEqual(data["status"], "failed")
+        self.assertEqual(data["summary"]["total"], 1)
+        self.assertEqual(data["summary"]["failed"], 1)
+        self.assertEqual(data["children"][0]["type"], "stage")
+        self.assertEqual(data["children"][0]["status"], "failed")
+        self.assertEqual(data["children"][0]["path"], ["tree", "group"])
+        self.assertEqual(data["children"][0]["children"][0]["type"], "step")
+        self.assertEqual(data["children"][0]["children"][0]["name"], "leaf")
+        self.assertEqual(data["children"][0]["children"][0]["path"], ["tree", "group", "leaf"])
+        self.assertEqual(data["error"]["step_name"], "leaf")
+        self.assertEqual(data["error"]["condition"], "not_empty(items)")
 
     def test_runbook_supports_nested_stages(self):
         result = (

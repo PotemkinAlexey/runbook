@@ -92,6 +92,31 @@ class RunbookCliTest(unittest.TestCase):
         self.assertEqual(data["name"], "cli")
         self.assertEqual(data["status"], "passed")
 
+    def test_main_run_json_file_returns_success(self):
+        path = self._write_json_runbook()
+
+        exit_code = self._run_cli(["run", str(path), "--quiet", "--context", '{"items": [1]}'])
+
+        self.assertEqual(exit_code, 0)
+
+    def test_main_run_json_file_returns_failure(self):
+        path = self._write_json_runbook()
+
+        exit_code = self._run_cli(["run", str(path), "--quiet", "--context", "{}"])
+
+        self.assertEqual(exit_code, 1)
+
+    def test_main_list_json_file_prints_tree(self):
+        path = self._write_json_runbook()
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+            exit_code = main(["list", str(path)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("cli-json", stdout.getvalue())
+        self.assertIn("  - one", stdout.getvalue())
+
     def test_main_list_prints_tree(self):
         path = self._write_runbook(
             """
@@ -115,6 +140,26 @@ class RunbookCliTest(unittest.TestCase):
         self.addCleanup(tmpdir.cleanup)
         path = Path(tmpdir.name) / "checks.py"
         path.write_text(textwrap.dedent(source), encoding="utf-8")
+        return path
+
+    def _write_json_runbook(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        path = Path(tmpdir.name) / "checks.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "name": "cli-json",
+                    "steps": [
+                        {
+                            "name": "one",
+                            "require": [{"check": "not_empty", "args": ["items"]}],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         return path
 
     def _run_cli(self, args):
