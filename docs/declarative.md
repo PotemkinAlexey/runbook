@@ -76,6 +76,12 @@ stages:
 
 YAML support uses PyYAML when it is installed. JSON support has no optional dependency.
 
+Install the optional YAML extra when you want YAML files:
+
+```bash
+pip install "runbook[yaml]"
+```
+
 ## Supported Shape
 
 Top-level fields:

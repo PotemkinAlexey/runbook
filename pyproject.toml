@@ -9,15 +9,42 @@ description = "Embeddable Python toolkit for operational checks and data pipelin
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
+authors = [
+    {name = "runbook contributors"},
+]
+keywords = ["runbook", "data-engineering", "checks", "validation", "pipelines"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "jinja2>=3.0",
 ]
+
+[project.urls]
+Documentation = "https://github.com/your-org/runbook"
+Repository = "https://github.com/your-org/runbook"
+Changelog = "https://github.com/your-org/runbook/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
     "build>=1.0",
     "mkdocs>=1.5",
     "ruff>=0.5.0",
+    "twine>=4.0",
+]
+yaml = [
+    "PyYAML>=5.1",
 ]
 airflow = [
     "apache-airflow>=2.0",
@@ -44,6 +71,9 @@ runbook = "runbook.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["runbook*"]
+
+[tool.setuptools.package-data]
+runbook = ["py.typed"]
 
 [tool.ruff]
 line-length = 120

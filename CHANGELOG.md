@@ -19,6 +19,8 @@ Initial release.
 - Result exporters, JSONL exporter, and async result exporter.
 - CLI commands for validate, list, and run across Python and declarative runbook files.
 - Optional integrations for local files, HTTP, and Airflow adapter usage.
+- Optional `yaml` extra for declarative YAML files.
+- Typed package marker (`py.typed`).
 - Documentation site with quickstart, cheat sheet, pipeline guide, examples cookbook, embedding guide, troubleshooting, and project philosophy.
 
 ### Notes
