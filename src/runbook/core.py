@@ -13,6 +13,7 @@ from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
 from .result import ResultNode, RunbookResult, StageResult, StepResult
+from .schema import validate_value
 from .templates import render_template
 from .types import Action, Context, ContextModifier, Loader
 
@@ -32,6 +33,7 @@ class Step:
         self.actions: List[Action] = []
         self.required_inputs: List[str] = []
         self.publishers: List[tuple[str, Loader]] = []
+        self.schema_validations: List[tuple[str, Any]] = []
         self.on_expect_failure: List[Action] = []
         self.retry_attempts = 1
         self.retry_delay_seconds = 0.0
@@ -96,6 +98,11 @@ class Step:
         self.publishers.append((key, fn))
         return self
 
+    def validate_schema(self, input_key: str, schema: Any) -> "Step":
+        self.inputs(input_key)
+        self.schema_validations.append((input_key, schema))
+        return self
+
     def with_external(self, modifier_fn: ContextModifier) -> "Step":
         self.context_modifiers.append(modifier_fn)
         return self
@@ -153,6 +160,7 @@ class Step:
         self._run_expression_expectation(context, active_logger)
         self._run_failure_conditions(context, active_logger)
         self._run_requirements(context, active_logger)
+        self._run_schema_validations(context, active_logger)
         warnings = self._run_warning_conditions(context, active_logger)
 
         for key, publisher in self.publishers:
@@ -218,6 +226,14 @@ class Step:
             logger.check_started("input", key)
             if _get_context_value(context, key) is None:
                 self._fail(context, f"input({key})", f"Missing required input: {key}", logger)
+
+    def _run_schema_validations(self, context: Context, logger: RunbookLogger) -> None:
+        for key, schema in self.schema_validations:
+            logger.check_started("schema", key)
+            try:
+                validate_value(_get_context_value(context, key), schema)
+            except Exception as exc:
+                self._fail(context, f"schema({key})", f"Schema validation failed for {key}: {exc}", logger)
 
     def _fail(self, context: Context, condition: str, message: str, logger: RunbookLogger) -> None:
         context["step_name"] = self.name

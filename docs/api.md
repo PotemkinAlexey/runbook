@@ -102,7 +102,7 @@ Framework-specific helpers should not be imported from the root `runbook` namesp
 ## Legacy and Advanced API
 
 ```python
-from runbook import safe_eval
+from runbook import safe_eval, validate_value
 ```
 
 `safe_eval` and `Step.expect()` remain available, but new code should prefer declarative checks through `require()`.

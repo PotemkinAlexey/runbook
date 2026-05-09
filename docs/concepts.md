@@ -98,6 +98,19 @@ step("Find files").publish("files", find_files)
 )
 ```
 
+Validate structured inputs with a callable, Pydantic model, or small JSON-schema-like dict:
+
+```python
+step("Validate row").validate_schema(
+    "row",
+    {
+        "type": "object",
+        "required": ["id"],
+        "properties": {"id": {"type": "integer"}},
+    },
+)
+```
+
 ## Checks
 
 Checks are predicates over the context.

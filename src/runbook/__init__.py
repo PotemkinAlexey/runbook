@@ -40,6 +40,7 @@ from .exceptions import RunbookFailedError, StepExecutionError
 from .notifications import email_notify
 from .reporting import format_failure, format_result_tree, format_runbook_tree
 from .result import RunbookResult, StageResult, StepResult
+from .schema import validate_value
 from .types import Action, Context, ContextModifier, Loader
 
 __all__ = [
@@ -99,4 +100,5 @@ __all__ = [
     "stage",
     "step",
     "validation_stage",
+    "validate_value",
 ]
