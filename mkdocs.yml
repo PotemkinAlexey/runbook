@@ -12,6 +12,7 @@ nav:
   - Checks: checks.md
   - Execution Results: results.md
   - Public API: api.md
+  - Data Engineering Helpers: data.md
   - CLI: cli.md
   - Integrations: integrations.md
   - Recipes: recipes.md

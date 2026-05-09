@@ -76,6 +76,7 @@ runbook run checks.py --context '{"items": [1, 2, 3]}'
 - [Checks](docs/checks.md)
 - [Execution Results](docs/results.md)
 - [Public API](docs/api.md)
+- [Data Engineering Helpers](docs/data.md)
 - [CLI](docs/cli.md)
 - [Integrations](docs/integrations.md)
 - [Recipes](docs/recipes.md)

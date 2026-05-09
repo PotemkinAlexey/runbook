@@ -20,6 +20,20 @@ from .checks import (
     not_empty,
 )
 from .core import Runbook, Stage, Step, stage, step
+from .data import (
+    check_files_exist,
+    check_freshness,
+    check_manifest_exists,
+    check_not_empty,
+    check_row_count,
+    check_schema,
+    check_watermark,
+    compare_row_counts,
+    export_stage,
+    post_export_checks,
+    pre_export_checks,
+    validation_stage,
+)
 from .evaluation import safe_eval
 from .events import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
@@ -47,12 +61,21 @@ __all__ = [
     "any_of",
     "contains",
     "custom",
+    "check_files_exist",
+    "check_freshness",
+    "check_manifest_exists",
+    "check_not_empty",
+    "check_row_count",
+    "check_schema",
+    "check_watermark",
+    "compare_row_counts",
     "email_notify",
     "configure_runbook_logging",
     "empty",
     "equals",
     "exists",
     "external",
+    "export_stage",
     "format_failure",
     "format_result_tree",
     "format_runbook_tree",
@@ -69,8 +92,11 @@ __all__ = [
     "missing",
     "not_",
     "not_empty",
+    "post_export_checks",
+    "pre_export_checks",
     "raise_",
     "safe_eval",
     "stage",
     "step",
+    "validation_stage",
 ]
