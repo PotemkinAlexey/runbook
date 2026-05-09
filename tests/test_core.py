@@ -189,6 +189,34 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(result.find("leaf").name, "leaf")
         self.assertEqual(result.find("group").name, "group")
 
+    def test_stage_skip_when_skips_children(self):
+        context = {"skip": True}
+        result = (
+            Runbook("stages")
+            .add(stage("group").skip_when(gt("skip", False), "disabled").add(step("child").set("ran", True)))
+            .execute(context)
+        )
+
+        self.assertTrue(result.passed)
+        self.assertTrue(result.children[0].skipped)
+        self.assertNotIn("ran", context)
+
+    def test_stage_continue_on_error_returns_failed_stage_result(self):
+        result = (
+            Runbook("stages")
+            .add(
+                stage("group")
+                .continue_on_error()
+                .add(step("bad").require(not_empty("items"), "missing"))
+                .add(step("after").set("after", True))
+            )
+            .execute({})
+        )
+
+        self.assertTrue(result.failed)
+        self.assertTrue(result.children[0].failed)
+        self.assertEqual([child.name for child in result.children[0].children], ["bad", "after"])
+
     def test_runbook_expand_context_manager_runs_steps_for_each_item(self):
         runbook = Runbook("expand").add(step("load").set("items", [1, 2]))
         with runbook.expand("items") as each:

@@ -46,6 +46,25 @@ runbook = (
 
 Stages execute children in order and return nested `StageResult` objects.
 
+Stages support the same core controls as steps:
+
+```python
+(
+    stage("Pre-checks")
+    .retry(times=2)
+    .timeout(seconds=30)
+    .skip_when(...)
+    .warn_when(...)
+    .fail_when(...)
+)
+```
+
+Use `continue_on_error()` when all children should run and the stage should report failure at the end:
+
+```python
+stage("Validations").continue_on_error()
+```
+
 ## Context
 
 The context is a mutable dictionary shared across steps.

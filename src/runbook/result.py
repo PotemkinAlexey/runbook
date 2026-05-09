@@ -107,9 +107,16 @@ class StageResult:
         cls,
         name: str,
         children: List[ResultNode],
+        warnings: Optional[List[str]] = None,
         duration_seconds: Optional[float] = None,
     ) -> "StageResult":
-        return cls(name=name, status="passed", children=children, duration_seconds=duration_seconds)
+        return cls(
+            name=name,
+            status="passed",
+            children=children,
+            warnings=warnings or [],
+            duration_seconds=duration_seconds,
+        )
 
     @classmethod
     def failure(
@@ -117,12 +124,14 @@ class StageResult:
         name: str,
         children: List[ResultNode],
         error: RunbookFailedError,
+        warnings: Optional[List[str]] = None,
         duration_seconds: Optional[float] = None,
     ) -> "StageResult":
         return cls(
             name=name,
             status="failed",
             children=children,
+            warnings=warnings or [],
             error=error,
             duration_seconds=duration_seconds,
         )

@@ -252,6 +252,14 @@ class Stage:
     def __init__(self, name: str):
         self.name = name
         self.children: List[ExecutableNode] = []
+        self.skip_conditions: List[tuple[Check, str]] = []
+        self.warning_conditions: List[tuple[Check, str]] = []
+        self.failure_conditions: List[tuple[Check, str]] = []
+        self.retry_attempts = 1
+        self.retry_delay_seconds = 0.0
+        self.timeout_seconds: Optional[float] = None
+        self.continue_on_error_enabled = False
+        self.fail_fast_enabled = True
 
     def add(self, child: "ExecutableNode") -> "Stage":
         self.children.append(child)
@@ -259,6 +267,43 @@ class Stage:
 
     def add_step(self, step: Step) -> "Stage":
         return self.add(step)
+
+    def fail_when(self, check: Check, message: str = "Failure condition matched") -> "Stage":
+        self.failure_conditions.append((check, message))
+        return self
+
+    def skip_when(self, check: Check, message: str = "Skipped") -> "Stage":
+        self.skip_conditions.append((check, message))
+        return self
+
+    def warn_when(self, check: Check, message: str = "Warning condition matched") -> "Stage":
+        self.warning_conditions.append((check, message))
+        return self
+
+    def retry(self, times: int, delay: float = 0.0) -> "Stage":
+        if times < 1:
+            raise ValueError("retry times must be >= 1")
+        if delay < 0:
+            raise ValueError("retry delay must be >= 0")
+        self.retry_attempts = times
+        self.retry_delay_seconds = delay
+        return self
+
+    def timeout(self, seconds: float) -> "Stage":
+        if seconds <= 0:
+            raise ValueError("timeout seconds must be > 0")
+        self.timeout_seconds = seconds
+        return self
+
+    def continue_on_error(self) -> "Stage":
+        self.continue_on_error_enabled = True
+        self.fail_fast_enabled = False
+        return self
+
+    def fail_fast(self) -> "Stage":
+        self.fail_fast_enabled = True
+        self.continue_on_error_enabled = False
+        return self
 
     def run(
         self,
@@ -270,19 +315,91 @@ class Stage:
         started_at = monotonic()
         active_logger = logger or get_runbook_logger()
         active_logger.stage_started(self.name, index=index, total=total)
+
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                with _step_timeout(self.timeout_seconds, self.name):
+                    return self._run_once(context, active_logger, started_at)
+            except RunbookFailedError as exc:
+                if attempt >= self.retry_attempts:
+                    raise
+                active_logger.step_retry(self.name, attempt + 1, self.retry_attempts, exc.condition)
+                if self.retry_delay_seconds:
+                    sleep(self.retry_delay_seconds)
+
+        raise RuntimeError("unreachable retry state")
+
+    def _run_once(self, context: Context, active_logger: RunbookLogger, started_at: float) -> StageResult:
         results: List[ResultNode] = []
+        warnings: List[str] = []
 
         try:
+            for check, message in self.skip_conditions:
+                active_logger.check_started("stage skip", check.name)
+                if _check_matches(self.name, check, context):
+                    rendered_msg = render_template(message, context)
+                    active_logger.step_skipped(self.name, rendered_msg)
+                    return StageResult(
+                        name=self.name,
+                        status="skipped",
+                        message=rendered_msg,
+                        duration_seconds=_elapsed(started_at),
+                    )
+
+            for check, message in self.failure_conditions:
+                active_logger.check_started("stage fail_when", check.name)
+                if _check_matches(self.name, check, context):
+                    raise RunbookFailedError(self.name, check.name, render_template(message, context))
+
+            for check, message in self.warning_conditions:
+                active_logger.check_started("stage warn_when", check.name)
+                if _check_matches(self.name, check, context):
+                    rendered_msg = render_template(message, context)
+                    active_logger.step_warning(self.name, rendered_msg)
+                    warnings.append(rendered_msg)
+
+            had_child_failure = False
             for child_index, child in enumerate(self.children, start=1):
-                results.append(child.run(context, logger=active_logger, index=child_index, total=len(self.children)))
+                try:
+                    results.append(
+                        child.run(context, logger=active_logger, index=child_index, total=len(self.children))
+                    )
+                except RunbookFailedError as exc:
+                    had_child_failure = True
+                    failed_result = _failed_result_from_error(exc, started_at)
+                    if not _result_already_recorded(results, failed_result):
+                        results.append(failed_result)
+                    if self.fail_fast_enabled:
+                        raise
+
+            if had_child_failure:
+                return StageResult(
+                    name=self.name,
+                    status="failed",
+                    children=results,
+                    warnings=warnings,
+                    duration_seconds=_elapsed(started_at),
+                )
+
             active_logger.stage_passed(self.name)
-            return StageResult.success(self.name, results, duration_seconds=_elapsed(started_at))
+            return StageResult.success(
+                self.name,
+                results,
+                warnings=warnings,
+                duration_seconds=_elapsed(started_at),
+            )
         except RunbookFailedError as exc:
             active_logger.stage_failed(self.name, exc.condition)
             failed_result = _failed_result_from_error(exc, started_at)
             if not _result_already_recorded(results, failed_result):
                 results.append(failed_result)
-            stage_result = StageResult.failure(self.name, results, exc, duration_seconds=_elapsed(started_at))
+            stage_result = StageResult.failure(
+                self.name,
+                results,
+                exc,
+                warnings=warnings,
+                duration_seconds=_elapsed(started_at),
+            )
             exc.result = stage_result
             exc.path = [self.name] + list(getattr(exc, "path", [exc.step_name]))
             raise
@@ -387,7 +504,19 @@ class Runbook:
 
         try:
             for index, child in enumerate(self.steps, start=1):
-                children.append(child.run(context, logger=logger, index=index, total=len(self.steps)))
+                child_result = child.run(context, logger=logger, index=index, total=len(self.steps))
+                children.append(child_result)
+                if child_result.failed:
+                    error = RunbookFailedError(child_result.name, "failed", child_result.message or "Child failed")
+                    logger.runbook_failed(self.name, error.step_name, error.condition)
+                    self._run_failure_handler(context, logger)
+                    return RunbookResult.failure(
+                        self.name,
+                        context,
+                        error,
+                        children=children,
+                        duration_seconds=_elapsed(started_at),
+                    )
             logger.runbook_passed(self.name, len(children))
             return RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at))
         except RunbookFailedError as exc:
@@ -511,6 +640,13 @@ def _failed_result_from_error(error: RunbookFailedError, started_at: float) -> R
     if isinstance(result, (StepResult, StageResult)):
         return result
     return StepResult(name=error.step_name, status="failed", duration_seconds=_elapsed(started_at))
+
+
+def _check_matches(name: str, check: Check, context: Context) -> bool:
+    try:
+        return check(context)
+    except Exception as exc:
+        raise RunbookFailedError(name, check.name, f"Check failed with error: {exc}") from None
 
 
 def _result_already_recorded(results: List[ResultNode], failed_result: ResultNode) -> bool:
