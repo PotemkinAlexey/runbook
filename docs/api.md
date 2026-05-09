@@ -79,6 +79,14 @@ from runbook import RunbookLogger, configure_runbook_logging, get_runbook_logger
 from runbook import format_failure
 ```
 
+## Observability
+
+```python
+from runbook import JsonlResultExporter, ResultExporter
+```
+
+Use `Runbook.export_to(...)` to attach result exporters for local files, telemetry bridges, or application-specific sinks.
+
 ## Registry
 
 ```python

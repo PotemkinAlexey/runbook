@@ -44,6 +44,19 @@ Include the final context explicitly:
 payload = result.to_json(include_context=True)
 ```
 
+## Exporters
+
+Attach result exporters when an embedding system needs to record every run.
+
+```python
+from runbook import JsonlResultExporter
+
+runbook.export_to(JsonlResultExporter("runbook-results.jsonl"))
+result = runbook.execute(context)
+```
+
+Exporters receive the final `RunbookResult`. Exporter errors are logged and do not change the runbook status.
+
 ## Strict Execution
 
 Use `run()` when failure should raise.

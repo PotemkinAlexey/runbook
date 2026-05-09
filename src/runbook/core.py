@@ -13,6 +13,7 @@ from .context import lazy, resolve_context_value
 from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
+from .observability import ResultExporter
 from .result import ResultNode, RunbookResult, StageResult, StepResult
 from .schema import validate_value
 from .templates import render_template
@@ -451,9 +452,14 @@ class Runbook:
         self.expander_parallel = False
         self.expander_max_workers: Optional[int] = None
         self.in_expand_mode = False
+        self.result_exporters: List[ResultExporter] = []
 
     def notify_on_failure(self, fn: Action) -> "Runbook":
         self.on_failure = fn
+        return self
+
+    def export_to(self, *exporters: ResultExporter) -> "Runbook":
+        self.result_exporters.extend(exporters)
         return self
 
     def add_step(self, step: Step) -> "Runbook":
@@ -537,27 +543,36 @@ class Runbook:
                     error = RunbookFailedError(child_result.name, "failed", child_result.message or "Child failed")
                     logger.runbook_failed(self.name, error.step_name, error.condition)
                     self._run_failure_handler(context, logger)
-                    return RunbookResult.failure(
-                        self.name,
-                        context,
-                        error,
-                        children=children,
-                        duration_seconds=_elapsed(started_at),
+                    return self._export_result(
+                        RunbookResult.failure(
+                            self.name,
+                            context,
+                            error,
+                            children=children,
+                            duration_seconds=_elapsed(started_at),
+                        ),
+                        logger,
                     )
             logger.runbook_passed(self.name, len(children))
-            return RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at))
+            return self._export_result(
+                RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at)),
+                logger,
+            )
         except RunbookFailedError as exc:
             logger.runbook_failed(self.name, exc.step_name, exc.condition)
             failed_result = _failed_result_from_error(exc, started_at)
             if not _result_already_recorded(children, failed_result):
                 children.append(failed_result)
             self._run_failure_handler(context, logger)
-            return RunbookResult.failure(
-                self.name,
-                context,
-                exc,
-                children=children,
-                duration_seconds=_elapsed(started_at),
+            return self._export_result(
+                RunbookResult.failure(
+                    self.name,
+                    context,
+                    exc,
+                    children=children,
+                    duration_seconds=_elapsed(started_at),
+                ),
+                logger,
             )
 
     def execute_parallel(self, context: Context, max_workers: Optional[int] = None) -> RunbookResult:
@@ -584,12 +599,15 @@ class Runbook:
                     if not _result_already_recorded(failed_children, failed_result):
                         failed_children.append(failed_result)
                     self._run_failure_handler(context, logger)
-                    return RunbookResult.failure(
-                        self.name,
-                        context,
-                        exc,
-                        children=failed_children,
-                        duration_seconds=_elapsed(started_at),
+                    return self._export_result(
+                        RunbookResult.failure(
+                            self.name,
+                            context,
+                            exc,
+                            children=failed_children,
+                            duration_seconds=_elapsed(started_at),
+                        ),
+                        logger,
                     )
 
                 results_by_index[index] = child_result
@@ -600,7 +618,10 @@ class Runbook:
 
         children = _ordered_results(results_by_index)
         logger.runbook_passed(self.name, len(children))
-        return RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at))
+        return self._export_result(
+            RunbookResult.success(self.name, context, children=children, duration_seconds=_elapsed(started_at)),
+            logger,
+        )
 
     def run(self, context: Context) -> None:
         result = self.execute(context)
@@ -614,6 +635,14 @@ class Runbook:
             self.on_failure(context)
         except Exception as exc:
             logger.handler_failed("runbook notify_on_failure", exc)
+
+    def _export_result(self, result: RunbookResult, logger: RunbookLogger) -> RunbookResult:
+        for exporter in self.result_exporters:
+            try:
+                exporter(result)
+            except Exception as exc:
+                logger.handler_failed("runbook result exporter", exc)
+        return result
 
 
 class Expansion:
