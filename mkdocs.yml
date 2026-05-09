@@ -8,6 +8,7 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Cheat Sheet: cheatsheet.md
   - Pipeline Guide: pipelines.md
   - Embedding Guide: embedding.md
   - Core Concepts: concepts.md

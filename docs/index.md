@@ -50,8 +50,9 @@ The result is a structured execution tree that can be printed, serialized, expor
 ## How To Learn It
 
 1. Read [Quickstart](quickstart.md) for the smallest useful example.
-2. Read [Pipeline Guide](pipelines.md) for the recommended production shape.
-3. Use [Recipes](recipes.md) when adding a specific behavior.
-4. Keep [Advanced Usage](advanced.md) for later.
+2. Keep [Cheat Sheet](cheatsheet.md) open while writing your first runbook.
+3. Read [Pipeline Guide](pipelines.md) for the recommended production shape.
+4. Use [Recipes](recipes.md) when adding a specific behavior.
+5. Keep [Advanced Usage](advanced.md) for later.
 
 Most users only need `Runbook`, `stage`, `step`, `inputs`, `publish`, and `require`.
