@@ -39,6 +39,26 @@ class RunbookCoreTest(unittest.TestCase):
         self.assertEqual(context["base"], 2)
         self.assertEqual(context["count"], 3)
 
+    def test_step_lazy_resolves_only_when_used(self):
+        context = {"calls": 0}
+
+        def load_count(ctx):
+            ctx["calls"] += 1
+            return 3
+
+        result = step("lazy").lazy("count", load_count).require(gt("count", 2)).run(context)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(context["count"], 3)
+        self.assertEqual(context["calls"], 1)
+
+    def test_step_lazy_does_not_resolve_when_unused(self):
+        context = {"calls": 0}
+
+        step("lazy").lazy("unused", lambda ctx: ctx.update({"calls": ctx["calls"] + 1})).run(context)
+
+        self.assertEqual(context["calls"], 0)
+
     def test_step_publish_stores_output_in_context(self):
         context = {"files": ["a.csv"]}
 

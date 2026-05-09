@@ -48,7 +48,7 @@ Checks are the preferred validation API.
 ## Actions and Context Helpers
 
 ```python
-from runbook import external, if_, if_else, instant_log, log, raise_
+from runbook import external, if_, if_else, instant_log, lazy, log, raise_
 ```
 
 `if_` and `if_else` are available for compatibility and advanced cases. Prefer step policies such as `skip_when`, `warn_when`, `fail_when`, and `require` for new code.

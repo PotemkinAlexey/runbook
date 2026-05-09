@@ -7,26 +7,33 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from .checks import Check
+from .context import resolve_context_value
 from .core import Stage, stage, step
 
 
 def check_files_exist(key: str = "files") -> Check:
-    return Check(f"check_files_exist({key})", lambda context: all(Path(path).exists() for path in context.get(key, [])))
+    return Check(
+        f"check_files_exist({key})",
+        lambda context: all(Path(path).exists() for path in _context_value(context, key, [])),
+    )
 
 
 def check_not_empty(key: str) -> Check:
-    return Check(f"check_not_empty({key})", lambda context: bool(context.get(key)))
+    return Check(f"check_not_empty({key})", lambda context: bool(_context_value(context, key)))
 
 
 def check_row_count(key: str = "row_count", minimum: int = 1) -> Check:
-    return Check(f"check_row_count({key}, minimum={minimum})", lambda context: context.get(key, 0) >= minimum)
+    return Check(
+        f"check_row_count({key}, minimum={minimum})",
+        lambda context: _context_value(context, key, 0) >= minimum,
+    )
 
 
 def check_schema(key: str, required_fields: Iterable[str]) -> Check:
     fields = tuple(required_fields)
 
     def predicate(context):
-        value = context.get(key)
+        value = _context_value(context, key)
         if isinstance(value, dict):
             return all(field in value for field in fields)
         if isinstance(value, list):
@@ -38,8 +45,8 @@ def check_schema(key: str, required_fields: Iterable[str]) -> Check:
 
 def check_freshness(key: str, max_age_seconds: float, now_key: Optional[str] = None) -> Check:
     def predicate(context):
-        value = _to_datetime(context.get(key))
-        now = _to_datetime(context.get(now_key)) if now_key else datetime.now(timezone.utc)
+        value = _to_datetime(_context_value(context, key))
+        now = _to_datetime(_context_value(context, now_key)) if now_key else datetime.now(timezone.utc)
         if value is None or now is None:
             return False
         return now - value <= timedelta(seconds=max_age_seconds)
@@ -50,18 +57,18 @@ def check_freshness(key: str, max_age_seconds: float, now_key: Optional[str] = N
 def check_watermark(key: str, minimum_key: str) -> Check:
     return Check(
         f"check_watermark({key}, minimum={minimum_key})",
-        lambda context: context.get(key) >= context.get(minimum_key),
+        lambda context: _context_value(context, key) >= _context_value(context, minimum_key),
     )
 
 
 def check_manifest_exists(key: str = "manifest") -> Check:
-    return Check(f"check_manifest_exists({key})", lambda context: bool(context.get(key)))
+    return Check(f"check_manifest_exists({key})", lambda context: bool(_context_value(context, key)))
 
 
 def compare_row_counts(left_key: str, right_key: str, tolerance: int = 0) -> Check:
     def predicate(context):
-        left = context.get(left_key)
-        right = context.get(right_key)
+        left = _context_value(context, left_key)
+        right = _context_value(context, right_key)
         if left is None or right is None:
             return False
         return abs(left - right) <= tolerance
@@ -113,3 +120,12 @@ def _to_datetime(value: Any) -> Optional[datetime]:
             return parsed.replace(tzinfo=timezone.utc)
         return parsed
     return None
+
+
+def _context_value(context, key: Optional[str], default: Any = None) -> Any:
+    if key is None:
+        return default
+    value = resolve_context_value(context, key)
+    if value is None:
+        return default
+    return value

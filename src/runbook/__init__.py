@@ -19,6 +19,7 @@ from .checks import (
     not_,
     not_empty,
 )
+from .context import LazyValue, lazy, resolve_context_value, resolve_value
 from .core import Runbook, Stage, Step, stage, step
 from .data import (
     check_files_exist,
@@ -68,6 +69,7 @@ __all__ = [
     "Context",
     "ContextModifier",
     "Loader",
+    "LazyValue",
     "all_of",
     "any_of",
     "contains",
@@ -98,6 +100,7 @@ __all__ = [
     "if_",
     "if_else",
     "instant_log",
+    "lazy",
     "list_registered_actions",
     "list_registered_checks",
     "lt",
@@ -112,6 +115,8 @@ __all__ = [
     "raise_",
     "register_action",
     "register_check",
+    "resolve_context_value",
+    "resolve_value",
     "safe_eval",
     "stage",
     "step",

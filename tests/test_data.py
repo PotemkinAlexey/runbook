@@ -15,6 +15,7 @@ from runbook import (
     export_stage,
     post_export_checks,
     pre_export_checks,
+    step,
     validation_stage,
 )
 
@@ -44,6 +45,16 @@ class DataChecksTest(unittest.TestCase):
             self.assertTrue(check_watermark("watermark", "minimum_watermark")(context))
             self.assertTrue(check_manifest_exists("manifest")(context))
             self.assertTrue(check_freshness("loaded_at", max_age_seconds=60, now_key="now")(context))
+
+    def test_data_checks_resolve_lazy_values(self):
+        context = {}
+
+        result = Runbook("lazy").add(step("load").lazy("row_count", lambda ctx: 3).require(check_row_count())).execute(
+            context
+        )
+
+        self.assertTrue(result.passed)
+        self.assertEqual(context["row_count"], 3)
 
     def test_high_level_stage_factories(self):
         context = {

@@ -1,11 +1,63 @@
-"""Helpers for enriching Airflow task context."""
+"""Context helpers."""
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 from urllib import parse
 
-from .types import Context
+from .types import Context, Loader
+
+
+class LazyValue:
+    """Context value resolved on first access."""
+
+    def __init__(self, loader: Loader) -> None:
+        self.loader = loader
+        self.loaded = False
+        self.value: Any = None
+
+    def resolve(self, context: Context) -> Any:
+        if not self.loaded:
+            self.value = self.loader(context)
+            self.loaded = True
+        return self.value
+
+
+def lazy(loader: Loader) -> LazyValue:
+    return LazyValue(loader)
+
+
+def resolve_value(value: Any, context: Context) -> Any:
+    if isinstance(value, LazyValue):
+        return value.resolve(context)
+    return value
+
+
+def resolve_context_value(context: Context, key: str) -> Any:
+    value: Any = context
+    container: Any = None
+    part_for_container: str = ""
+
+    for part in key.split("."):
+        value = resolve_value(value, context)
+        if isinstance(value, dict):
+            container = value
+            part_for_container = part
+            value = value.get(part)
+        else:
+            value = getattr(value, part, None)
+
+        if isinstance(value, LazyValue):
+            resolved = value.resolve(context)
+            if isinstance(container, dict):
+                container[part_for_container] = resolved
+            value = resolved
+
+        if value is None:
+            return None
+
+    return resolve_value(value, context)
 
 
 def enrich_airflow_context(context: Context) -> Context:

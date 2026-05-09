@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from typing import Any, Callable, Iterable
 
+from .context import resolve_context_value
 from .types import Context
 
 
@@ -85,15 +86,7 @@ def custom(name: str, predicate: Callable[[Context], bool]) -> Check:
 
 
 def _get(context: Context, key: str) -> Any:
-    value: Any = context
-    for part in key.split("."):
-        if isinstance(value, dict):
-            value = value.get(part)
-        else:
-            value = getattr(value, part, None)
-        if value is None:
-            return None
-    return value
+    return resolve_context_value(context, key)
 
 
 def _join_name(name: str, checks: Iterable[Check]) -> str:

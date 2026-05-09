@@ -92,6 +92,13 @@ Or compute values:
 step("Load").load("files", lambda context: ["daily.csv"])
 ```
 
+Use `lazy()` when a value is expensive and should be loaded only if a later check or step reads it:
+
+```python
+step("Prepare").lazy("files", find_files)
+step("Check files").inputs("files").require(not_empty("files"))
+```
+
 Use `inputs()` and `publish()` when a step has explicit dependencies and outputs:
 
 ```python

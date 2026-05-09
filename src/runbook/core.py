@@ -9,6 +9,7 @@ from time import monotonic, sleep
 from typing import Any, List, Optional, Union
 
 from .checks import Check
+from .context import lazy, resolve_context_value
 from .evaluation import safe_eval
 from .events import RunbookLogger, get_runbook_logger
 from .exceptions import RunbookFailedError, StepExecutionError
@@ -89,6 +90,10 @@ class Step:
 
     def load(self, key: str, loader_fn: Loader) -> "Step":
         return self.with_loader(loader_fn, key)
+
+    def lazy(self, key: str, loader_fn: Loader) -> "Step":
+        self.context_modifiers.append(lambda context: context.update({key: lazy(loader_fn)}))
+        return self
 
     def inputs(self, *keys: str) -> "Step":
         self.required_inputs.extend(keys)
@@ -676,15 +681,7 @@ def _result_already_recorded(results: List[ResultNode], failed_result: ResultNod
 
 
 def _get_context_value(context: Context, key: str) -> Any:
-    value: Any = context
-    for part in key.split("."):
-        if isinstance(value, dict):
-            value = value.get(part)
-        else:
-            value = getattr(value, part, None)
-        if value is None:
-            return None
-    return value
+    return resolve_context_value(context, key)
 
 
 def _run_expanded_item(item: Any, context: Context, steps_to_run: List[Step], logger: RunbookLogger) -> None:
